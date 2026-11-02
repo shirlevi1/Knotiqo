@@ -91,3 +91,40 @@ class AuthenticationTests(TestCase):
         me_response = self.client.get("/api/auth/me/")
 
         self.assertEqual(me_response.status_code, 401)
+
+    def test_login_with_invalid_csrf_is_rejected(self):
+        self.client.get("/api/auth/csrf/")
+        response = self.client.post(
+            "/api/auth/login/",
+            {"username": "test_user", "password": "TestPassword123!"},
+            format="json",
+            HTTP_X_CSRFTOKEN="invalid",
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(self.client.get("/api/auth/me/").status_code, 401)
+
+    def test_login_rejects_invalid_json_and_credential_types(self):
+        self.client.get("/api/auth/csrf/")
+        for body in ('{', '[]', '{}', '{"username": 42, "password": false}'):
+            with self.subTest(body=body):
+                response = self.client.post(
+                    "/api/auth/login/",
+                    data=body,
+                    content_type="application/json",
+                    HTTP_X_CSRFTOKEN=self.client.cookies["csrftoken"].value,
+                )
+                self.assertEqual(response.status_code, 400)
+        self.assertEqual(self.client.get("/api/auth/me/").status_code, 401)
+
+    def test_inactive_user_cannot_login(self):
+        self.user.is_active = False
+        self.user.save(update_fields=["is_active"])
+        self.client.get("/api/auth/csrf/")
+        response = self.client.post(
+            "/api/auth/login/",
+            {"username": "test_user", "password": "TestPassword123!"},
+            format="json",
+            HTTP_X_CSRFTOKEN=self.client.cookies["csrftoken"].value,
+        )
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(self.client.get("/api/auth/me/").status_code, 401)

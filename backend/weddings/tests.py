@@ -68,3 +68,40 @@ class WeddingAccessTests(TestCase):
         response = self.client.get("/api/weddings/")
 
         self.assertIn(response.status_code, [401, 403])
+
+    def test_real_login_session_limits_weddings_and_logout_revokes_access(self):
+        other_wedding = Wedding.objects.create(name="Another Wedding")
+        WeddingMembership.objects.create(wedding=other_wedding, user=self.stranger)
+
+        for user, password, expected_wedding in (
+            (self.bride, "test-password-1", self.wedding),
+            (self.partner, "test-password-2", self.wedding),
+            (self.stranger, "test-password-3", other_wedding),
+        ):
+            with self.subTest(user=user.username):
+                client = APIClient(enforce_csrf_checks=True)
+                client.get("/api/auth/csrf/")
+                response = client.post(
+                    "/api/auth/login/",
+                    {"username": user.username, "password": password},
+                    format="json",
+                    HTTP_X_CSRFTOKEN=client.cookies["csrftoken"].value,
+                )
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(client.get("/api/auth/me/").json()["id"], user.id)
+                response = client.get("/api/weddings/")
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual([w["id"] for w in response.data], [expected_wedding.id])
+
+                old_session = client.cookies["sessionid"].value
+                response = client.post(
+                    "/api/auth/logout/",
+                    HTTP_X_CSRFTOKEN=client.cookies["csrftoken"].value,
+                )
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(client.get("/api/auth/me/").status_code, 401)
+                self.assertIn(client.get("/api/weddings/").status_code, [401, 403])
+
+                # A copied cookie must not revive a session invalidated on the server.
+                client.cookies["sessionid"] = old_session
+                self.assertEqual(client.get("/api/auth/me/").status_code, 401)
