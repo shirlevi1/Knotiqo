@@ -1,0 +1,30 @@
+/* Shared design tokens for the landing page and future product screens. */
+:root {
+  color-scheme: light;
+  --color-primary: #709CB4;
+  --color-primary-hover: #527F98;
+  --color-primary-soft: #EAF5FA;
+  --color-background: #FAFCFD;
+  --color-surface: #FFFFFF;
+  --color-surface-soft: #F3F8FB;
+  --color-text: #354C5A;
+  --color-muted: #748895;
+  --color-border: #DCE9EF;
+  --color-champagne: #C6B69C;
+  --color-ivory: #FBF8F2;
+
+  /* Readable small text and controls on the light palette. */
+  --color-text-muted: #5E7482;
+  --color-on-primary: #172F3E;
+  --color-on-primary-hover: #07151E;
+  --color-focus: #527F98;
+  --color-input-border: #748895;
+  --color-error: #9A403E;
+  --shadow-card: 0 16px 45px rgb(53 76 90 / 6%);
+  /* Typography: Hebrew interface and English editorial accents. */
+  --font-heading: "Frank Ruhl Libre", Georgia, serif;
+  --font-body: "Heebo", Arial, sans-serif;
+  --font-editorial: "Cormorant Garamond", Georgia, serif;
+  --radius-control: 4px;
+}
+
