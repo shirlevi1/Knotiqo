@@ -1,5 +1,4 @@
 from rest_framework import serializers
-
 from .models import Wedding
 
 
@@ -24,3 +23,7 @@ class WeddingSerializer(serializers.ModelSerializer):
                     "wedding_date": ["Must be an ISO date string or null."],
                 })
         return super().to_internal_value(data)
+
+
+class CreateInvitationSerializer(serializers.Serializer):
+    email = serializers.EmailField()
