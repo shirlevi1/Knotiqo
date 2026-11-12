@@ -1,0 +1,78 @@
+
+/* Registration page */
+
+.register-header {
+    display: flex;
+    justify-content: center;
+    padding: 36px 0;
+}
+
+.register-page {
+    display: flex;
+    justify-content: center;
+    padding: 24px 0 70px;
+}
+
+.register-card {
+    width: 100%;
+    max-width: 500px;
+    border-radius: 24px;
+    padding: 40px;
+}
+
+.register-card h1 {
+    font-family: var(--font-heading);
+    font-size: 40px;
+    font-weight: 400;
+}
+
+.register-card .password-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 8px;
+    cursor: pointer;
+}
+
+.login-card .password-toggle input {
+    width: 17px;
+    height: 17px;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    accent-color: var(--color-primary);
+}
+
+.password-hint {
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--color-text-muted);
+}
+
+.login-card .auth-text-button {
+    display: inline;
+    width: auto;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    color: var(--color-primary-hover);
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.login-card .auth-text-button:hover:not(:disabled) {
+    background: transparent;
+    color: var(--color-text);
+    text-decoration: underline;
+}
+
+@media (max-width: 600px) {
+    .register-card {
+        padding: 32px 24px;
+    }
+
+    .register-card h1 {
+        font-size: 34px;
+    }
+}

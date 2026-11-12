@@ -1,5 +1,11 @@
+import WeddingWorkspace from "./WeddingWorkspace";
+import { getCsrfToken } from "./api/csrf";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import Register from "./Register";
+// ==========================================
+// Types & Error Handling
+// ==========================================
 
 type User = {
     id: number;
@@ -32,22 +38,60 @@ function checkResponse(response: Response): void {
     );
 }
 
-function getCsrfToken(): string {
-    const cookie = document.cookie
-        .split("; ")
-        .find((item) => item.startsWith("csrftoken="));
-
-    return cookie
-        ? decodeURIComponent(cookie.substring("csrftoken=".length))
-        : "";
-}
+// ==========================================
+// Login Component
+// ==========================================
 
 export default function Login() {
+    const [showRegister, setShowRegister] = useState(false);
+    const [registrationSuccess, setRegistrationSuccess] = useState(false);
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
     const [user, setUser] = useState<User | null>(null);
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
+    const [checkingSession, setCheckingSession] = useState(true);
+
+    // ======================================
+    // Restore Existing Session
+    // ======================================
+
+    useEffect(() => {
+        const controller = new AbortController();
+
+        async function restoreSession() {
+            try {
+                const response = await fetch("/api/auth/me/", {
+                    credentials: "same-origin",
+                    signal: controller.signal,
+                });
+
+                if (!response.ok) {
+                    return;
+                }
+
+                const data: User = await response.json();
+
+                if (!controller.signal.aborted) {
+                    setUser(data);
+                }
+            } catch {
+                // The user can still log in manually.
+            } finally {
+                if (!controller.signal.aborted) {
+                    setCheckingSession(false);
+                }
+            }
+        }
+
+        void restoreSession();
+
+        return () => controller.abort();
+    }, []);
+
+    // ======================================
+    // Handle Login
+    // ======================================
 
     async function handleLogin(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -55,7 +99,7 @@ export default function Login() {
         setLoading(true);
 
         try {
-            // Request CSRF cookie from Django
+            // Ask Django to set the CSRF cookie.
             const csrfResponse = await fetch("/api/auth/csrf/", {
                 credentials: "same-origin",
             });
@@ -70,7 +114,7 @@ export default function Login() {
                 );
             }
 
-            // Send login credentials to Django
+            // Send credentials to Django.
             const response = await fetch("/api/auth/login/", {
                 method: "POST",
                 credentials: "same-origin",
@@ -93,6 +137,7 @@ export default function Login() {
                 );
             }
 
+            // Validate the response structure.
             if (
                 typeof data !== "object" ||
                 data === null ||
@@ -106,6 +151,7 @@ export default function Login() {
                 );
             }
 
+            // Update React state after successful login.
             setUser({
                 id: data.id,
                 username: data.username,
@@ -123,12 +169,79 @@ export default function Login() {
         }
     }
 
+    // ======================================
+    // Handle Logout
+    // ======================================
+
+    async function handleLogout() {
+        setError("");
+        setLoading(true);
+
+        try {
+            // Make sure we have a valid CSRF cookie.
+            const csrfResponse = await fetch("/api/auth/csrf/", {
+                credentials: "same-origin",
+            });
+
+            checkResponse(csrfResponse);
+
+            const csrfToken = getCsrfToken();
+
+            if (!csrfToken) {
+                throw new LoginError(
+                    "לא ניתן לבצע התנתקות כרגע."
+                );
+            }
+
+            // Ask Django to invalidate the session.
+            const response = await fetch("/api/auth/logout/", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: {
+                    "X-CSRFToken": csrfToken,
+                },
+            });
+
+            checkResponse(response);
+
+            // Clear React state only after logout succeeds.
+            setUser(null);
+            setPassword("");
+        } catch {
+            setError("ההתנתקות נכשלה. נסי שוב.");
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    // ======================================
+    // Session Loading Screen
+    // ======================================
+
+    if (checkingSession) {
+        return (
+            <main
+                className="welcome-page"
+                dir="rtl"
+                role="status"
+            >
+                <p>מכינים את המרחב שלכם...</p>
+            </main>
+        );
+    }
+
+    // ======================================
+    // Authenticated Welcome Screen
+    // ======================================
+
     if (user) {
         return (
             <main className="welcome-page" dir="rtl">
                 <a className="wordmark" href="/" lang="en">
                     Knotiqo
-                    <span lang="he">מתחילים את הפרק הבא</span>
+                    <span lang="he">
+                        מתחילים את הפרק הבא
+                    </span>
                 </a>
 
                 <div className="welcome-card">
@@ -136,23 +249,63 @@ export default function Login() {
                         הסיפור שלכם ממשיך כאן
                     </p>
 
-                    <h2>איזה כיף שחזרת, {user.username}!</h2>
+                    <h2>
+                        איזה כיף שחזרת, {user.username}!
+                    </h2>
 
                     <p>
                         עוד צעד קטן בדרך ליום הגדול שלכם.
                     </p>
+
+                    <WeddingWorkspace key={user.id} />
+
+                    <button
+                        className="logout-button"
+                        type="button"
+                        onClick={handleLogout}
+                        disabled={loading}
+                    >
+                        {loading ? "מתנתקת..." : "התנתקות"}
+                    </button>
+
+                    {error && (
+                        <p role="alert">
+                            {error}
+                        </p>
+                    )}
                 </div>
             </main>
         );
     }
+    if (showRegister) {
+        return (
+            <Register
+                onBack={() => setShowRegister(false)}
+                onRegistered={(registeredUsername) => {
+                    setUsername(registeredUsername);
+                    setPassword("");
+                    setError("");
+                    setRegistrationSuccess(true);
+                    setShowRegister(false);
+                }}
+            />
+        );
+    }
+
+    // ======================================
+    // Landing Page
+    // ======================================
 
     return (
         <div className="landing-page" dir="rtl">
+            {/* Navigation */}
+
             <header className="site-header">
                 <div className="nav-shell">
                     <div className="nav-side nav-side-left">
-                        <span className="nav-kicker">ביחד, בדרך שלכם</span>
-
+                        <span className="nav-kicker">
+                            ביחד, בדרך שלכם
+                        </span>
                     </div>
 
                     <a
@@ -162,7 +315,9 @@ export default function Login() {
                         lang="en"
                     >
                         Knotiqo
-                        <span lang="he">מתחילים את הפרק הבא</span>
+                        <span lang="he">
+                            מתחילים את הפרק הבא
+                        </span>
                     </a>
 
                     <div className="nav-side nav-side-right">
@@ -173,14 +328,44 @@ export default function Login() {
                 </div>
             </header>
 
-            <main className="landing-main" aria-labelledby="intro-title">
+            {/* Main Content */}
+
+            <main
+                className="landing-main"
+                aria-labelledby="intro-title"
+            >
+                {/* Hero Text */}
+
                 <div className="editorial">
-                    <p className="eyebrow">מתחילים את הפרק הבא</p>
-                    <h1 id="intro-title">אמרתם כן.<br /><span>עכשיו מתחיל כל הקסם.</span></h1>
-                    <p className="intro-copy">יש לכם תאריך לחלום עליו, אנשים שאתם אוהבים לחגוג איתם, ואלף רעיונות שרק מחכים להפוך למציאות.</p>
-                    <p className="intro-copy">כאן מתחילים לתכנן את החתונה שלכם. ביחד, בדרך שלכם.</p>
-                    <a className="text-link" href="#login">בואו נתחיל את הסיפור שלנו <span aria-hidden="true">←</span></a>
+                    <p className="eyebrow">
+                        מתחילים את הפרק הבא
+                    </p>
+
+                    <h1 id="intro-title">
+                        אמרתם כן.
+                        <br />
+                        <span>עכשיו מתחיל כל הקסם.</span>
+                    </h1>
+
+                    <p className="intro-copy">
+                        יש לכם תאריך לחלום עליו,
+                        אנשים שאתם אוהבים לחגוג איתם,
+                        ואלף רעיונות שרק מחכים להפוך למציאות.
+                    </p>
+
+                    <p className="intro-copy">
+                        כאן מתחילים לתכנן את החתונה שלכם.
+                        ביחד, בדרך שלכם.
+                    </p>
+
+                    <a className="text-link" href="#login">
+                        בואו נתחיל את הסיפור שלנו
+                        <span aria-hidden="true">←</span>
+                    </a>
                 </div>
+
+                {/* Engagement Ring Image */}
+
                 <figure className="wedding-photo">
                     <img
                         src="/images/engagement-ring.png"
@@ -190,6 +375,9 @@ export default function Login() {
                         alt="טבעת אירוסין בקופסת קטיפה פתוחה, לצד פרחים בגוני שנהב ותכלת על בד משי בהיר"
                     />
                 </figure>
+
+                {/* Login Form */}
+
                 <section
                     className="login-card"
                     id="login"
@@ -263,15 +451,40 @@ export default function Login() {
                         )}
                     </form>
 
+                    {registrationSuccess && (
+                        <p role="status" className="registration-success">
+                            החשבון נוצר בהצלחה! אפשר להתחבר עכשיו.
+                        </p>
+                    )}
+
+                    <p className="card-footnote">
+                        עדיין אין לכם חשבון?{" "}
+                        <button
+                            type="button"
+                            className="auth-text-button"
+                            onClick={() => {
+                                setRegistrationSuccess(false);
+                                setError("");
+                                setShowRegister(true);
+                            }}
+                        >
+                            יוצרים חשבון כאן
+                        </button>
+                    </p>
+
+
                     <p className="card-footnote">
                         עוד צעד קטן בדרך ליום הגדול שלכם.
                     </p>
                 </section>
-
             </main>
 
+            {/* Footer */}
+
             <footer className="site-footer">
-                <span>ביחד, מהרגע הראשון.</span>
+                <span>
+                    ביחד, מהרגע הראשון.
+                </span>
 
                 <span>
                     Knotiqo · מתחילים את הפרק הבא

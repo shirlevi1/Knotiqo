@@ -1,0 +1,30 @@
+/* Authenticated wedding creation and summaries; uses the shared theme. */
+.wedding-create, .wedding-workspace {
+    margin-block: 32px;
+    padding-block: 24px;
+    border-block-start: 1px solid var(--color-border);
+}
+.wedding-create > p, .wedding-summary p { color: var(--color-text-muted); }
+.wedding-create fieldset { border: 0; padding: 0; margin: 24px 0 0; min-width: 0; }
+.wedding-field { margin-block-end: 20px; }
+.wedding-field label { display: block; margin-block-end: 8px; font-size: 14px; }
+.wedding-field input {
+    width: 100%; min-height: 48px; padding: 12px;
+    background: var(--color-surface-soft); color: var(--color-text);
+    border: 1px solid var(--color-input-border); border-radius: var(--radius-control);
+}
+.wedding-field input[type="date"] { direction: ltr; }
+.wedding-field input:focus { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.wedding-field input[aria-invalid="true"] { border-color: var(--color-error); }
+.wedding-button {
+    padding: 14px 20px; min-height: 48px; max-width: 100%;
+    border: 0; border-radius: var(--radius-control); cursor: pointer;
+    background: var(--color-primary); color: var(--color-on-primary);
+}
+.wedding-button:hover:not(:disabled) { background: var(--color-primary-hover); color: var(--color-on-primary-hover); }
+.wedding-button:disabled, fieldset:disabled .wedding-button { opacity: .65; cursor: wait; }
+.wedding-error { color: var(--color-error); font-size: 14px; }
+.wedding-list { list-style: none; padding: 0; display: grid; gap: 16px; }
+.wedding-summary { padding: 20px; background: var(--color-surface-soft); border: 1px solid var(--color-border); border-radius: 12px; }
+.wedding-summary h3 { margin: 0; font-size: 26px; overflow-wrap: anywhere; }
+.wedding-summary p { margin-block-end: 0; }
