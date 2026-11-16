@@ -87,6 +87,7 @@ export default function PartnerInvitation({ weddingId }: Props) {
                 <div className="invitation-success">
                     <p role="status">ההזמנה נוצרה בהצלחה!</p>
                     <p>הקישור תקף לשבעה ימים.</p>
+                    <p>שתפו את הקישור באופן פרטי עם מי שהזמנתם.</p>
 
                     <div className="wedding-field">
                         <label htmlFor={`invitation-link-${weddingId}`}>

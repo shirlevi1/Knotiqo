@@ -120,6 +120,22 @@ class WeddingInvitationAPITests(TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertFalse(WeddingInvitation.objects.exists())
 
+    def test_full_wedding_cannot_create_invitation(self):
+        partner = get_user_model().objects.create_user(
+            username="existing_partner",
+            email="existing_partner@example.com",
+        )
+        membership = WeddingMembership.objects.create(wedding=self.wedding, user=partner)
+        self.assertIn(membership, self.wedding.memberships.all())
+
+        response = self.client.post(
+            self.url, {"email": "third@example.com"}, format="json"
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(self.wedding.invitations.exists())
+        self.assertEqual(self.wedding.memberships.count(), 2)
+
     def test_duplicate_invitation_is_rejected(self):
         payload = {"email": "partner@example.com"}
 

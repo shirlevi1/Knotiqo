@@ -1,8 +1,9 @@
 import WeddingWorkspace from "./WeddingWorkspace";
 import { getCsrfToken } from "./api/csrf";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent, type MouseEvent } from "react";
 import Register from "./Register";
+import AcceptInvitation from "./AcceptInvitation";
 // ==========================================
 // Types & Error Handling
 // ==========================================
@@ -42,7 +43,7 @@ function checkResponse(response: Response): void {
 // Login Component
 // ==========================================
 
-export default function Login() {
+export default function Login({ invitationToken }: { invitationToken?: string }) {
     const [showRegister, setShowRegister] = useState(false);
     const [registrationSuccess, setRegistrationSuccess] = useState(false);
     const [username, setUsername] = useState("");
@@ -51,6 +52,26 @@ export default function Login() {
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
     const [checkingSession, setCheckingSession] = useState(true);
+    const [showAuth, setShowAuth] = useState(false);
+    const [joinedWeddingId, setJoinedWeddingId] = useState<number>();
+
+    useEffect(() => {
+        if (invitationToken && !window.location.hash) {
+            window.history.replaceState(null, "", `/invite/#${invitationToken}`);
+        }
+    }, [invitationToken]);
+
+    useEffect(() => {
+        if (showAuth && !showRegister && !user) {
+            document.getElementById("username")?.focus();
+        }
+    }, [showAuth, showRegister, user]);
+
+    function focusInvitationLogin(event: MouseEvent<HTMLAnchorElement>) {
+        if (invitationToken === undefined) return;
+        event.preventDefault();
+        document.getElementById("username")?.focus();
+    }
 
     // ======================================
     // Restore Existing Session
@@ -234,6 +255,30 @@ export default function Login() {
     // Authenticated Welcome Screen
     // ======================================
 
+    if (invitationToken !== undefined && joinedWeddingId === undefined && (user || !showAuth)) {
+        return (
+            <AcceptInvitation
+                token={invitationToken}
+                signedIn={user !== null}
+                onLogin={() => setShowAuth(true)}
+                onRegister={() => {
+                    setShowRegister(true);
+                    setShowAuth(true);
+                }}
+                onLogout={() => {
+                    setShowAuth(false);
+                    void handleLogout();
+                }}
+                signingOut={loading}
+                logoutError={error}
+                onAccepted={(weddingId) => {
+                    window.history.replaceState(null, "", "/");
+                    setJoinedWeddingId(weddingId);
+                }}
+            />
+        );
+    }
+
     if (user) {
         return (
             <main className="welcome-page" dir="rtl">
@@ -257,7 +302,7 @@ export default function Login() {
                         עוד צעד קטן בדרך ליום הגדול שלכם.
                     </p>
 
-                    <WeddingWorkspace key={user.id} />
+                    <WeddingWorkspace key={user.id} preferredWeddingId={joinedWeddingId} />
 
                     <button
                         className="logout-button"
@@ -321,7 +366,7 @@ export default function Login() {
                     </a>
 
                     <div className="nav-side nav-side-right">
-                        <a className="nav-cta" href="#login">
+                        <a className="nav-cta" href="#login" onClick={focusInvitationLogin}>
                             כניסה למרחב
                         </a>
                     </div>
@@ -358,7 +403,7 @@ export default function Login() {
                         ביחד, בדרך שלכם.
                     </p>
 
-                    <a className="text-link" href="#login">
+                    <a className="text-link" href="#login" onClick={focusInvitationLogin}>
                         בואו נתחיל את הסיפור שלנו
                         <span aria-hidden="true">←</span>
                     </a>

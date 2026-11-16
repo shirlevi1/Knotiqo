@@ -8,11 +8,12 @@ from .serializers import WeddingSerializer
 from .services import create_wedding, weddings_for_user
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.shortcuts import get_object_or_404
+from django.views.decorators.cache import never_cache
 from rest_framework.exceptions import ValidationError as DRFValidationError
 
 from .models import Wedding
-from .serializers import CreateInvitationSerializer
-from .services import create_partner_invitation
+from .serializers import CreateInvitationSerializer, InvitationTokenSerializer
+from .services import accept_partner_invitation, create_partner_invitation, preview_partner_invitation
 
 @api_view(["GET", "POST"])
 @authentication_classes([SessionAuthentication])
@@ -29,6 +30,7 @@ def my_weddings(request):
 
     return Response(WeddingSerializer(weddings, many=True).data)
 
+@never_cache
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -59,7 +61,31 @@ def create_invitation(request, wedding_id):
             "email": invitation.invited_email,
             "status": invitation.status,
             "expires_at": invitation.expires_at.isoformat(),
-            "invitation_url": f"/invite/{token}",
+            "invitation_url": f"/invite/#{token}",
         },
         status=201,
     )
+
+
+@never_cache
+@api_view(["POST"])
+@authentication_classes([])
+def validate_invitation(request):
+    # POST keeps the secret in the request body. The lookup is read-only.
+    serializer = InvitationTokenSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    return Response(preview_partner_invitation(**serializer.validated_data))
+
+
+@never_cache
+@api_view(["POST"])
+@authentication_classes([SessionAuthentication])
+@permission_classes([IsAuthenticated])
+def accept_invitation(request):
+    serializer = InvitationTokenSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    try:
+        wedding = accept_partner_invitation(user=request.user, **serializer.validated_data)
+    except DjangoValidationError:
+        return Response({"detail": "Wedding membership unavailable."}, status=409)
+    return Response(WeddingSerializer(wedding).data)

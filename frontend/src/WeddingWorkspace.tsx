@@ -10,7 +10,7 @@ type State =
     | { status: "error"; message: string }
     | { status: "ready"; weddings: Wedding[] };
 
-export default function WeddingWorkspace() {
+export default function WeddingWorkspace({ preferredWeddingId }: { preferredWeddingId?: number }) {
     const [state, setState] = useState<State>({ status: "loading" });
     const [attempt, setAttempt] = useState(0);
 
@@ -22,6 +22,10 @@ export default function WeddingWorkspace() {
 
             try {
                 const weddings = await getWeddings(controller.signal);
+                const preferredIndex = weddings.findIndex(({ id }) => id === preferredWeddingId);
+                if (preferredIndex > 0) {
+                    weddings.unshift(...weddings.splice(preferredIndex, 1));
+                }
 
                 if (!controller.signal.aborted) {
                     setState({ status: "ready", weddings });
@@ -41,7 +45,7 @@ export default function WeddingWorkspace() {
         void load();
 
         return () => controller.abort();
-    }, [attempt]);
+    }, [attempt, preferredWeddingId]);
 
     if (state.status === "loading") {
         return <p role="status">טוענים את המרחב המשותף שלכם...</p>;

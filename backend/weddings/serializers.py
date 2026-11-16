@@ -27,3 +27,14 @@ class WeddingSerializer(serializers.ModelSerializer):
 
 class CreateInvitationSerializer(serializers.Serializer):
     email = serializers.EmailField()
+
+
+class InvitationTokenSerializer(serializers.Serializer):
+    token = serializers.RegexField(r"\A[A-Za-z0-9_-]{43}\Z", trim_whitespace=False)
+
+    def to_internal_value(self, data):
+        if not isinstance(data, dict) or set(data) != {"token"} or not isinstance(data["token"], str):
+            raise serializers.ValidationError({
+                "non_field_errors": ["Only an invitation token is accepted."],
+            })
+        return super().to_internal_value(data)

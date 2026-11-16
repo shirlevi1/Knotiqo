@@ -1,0 +1,34 @@
+.invitation-page .invitation-card {
+    box-sizing: border-box;
+    width: min(100%, 34rem);
+    margin-inline: auto;
+    text-align: center;
+    overflow-wrap: anywhere;
+}
+
+.invitation-card :is(button, .text-link) {
+    display: block;
+    margin: 1rem auto;
+    max-width: 100%;
+}
+
+.invitation-card .text-link {
+    width: fit-content;
+}
+
+.invitation-card .auth-text-button {
+    padding: 0.5rem 1rem;
+    font: inherit;
+    color: var(--color-primary-hover);
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+}
+
+.invitation-card .auth-text-button:hover:not(:disabled) {
+    text-decoration: underline;
+}
+
+.invitation-card .auth-text-button:disabled {
+    opacity: 0.65;
+}

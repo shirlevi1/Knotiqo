@@ -18,7 +18,7 @@ export class WeddingApiError extends Error {
     }
 }
 
-function isWedding(value: unknown): value is Wedding {
+export function isWedding(value: unknown): value is Wedding {
     return typeof value === "object" && value !== null
         && "id" in value && typeof value.id === "number"
         && "name" in value && typeof value.name === "string"

@@ -1,4 +1,5 @@
 from django.core.exceptions import PermissionDenied
+from django.http import Http404
 from django.db import transaction
 from .models import Wedding, WeddingMembership,WeddingInvitation
 import secrets
@@ -33,16 +34,17 @@ def create_partner_invitation(*, wedding, invited_by, email):
     # 1. Check authentication and permissions
     _require_authenticated_user(invited_by)
 
-    # Lock the wedding to serialize invitation creation
-    Wedding.objects.select_for_update().get(pk=wedding.pk)
+    # Read membership under the same wedding lock used by acceptance.
+    wedding = Wedding.objects.select_for_update().get(pk=wedding.pk)
+    memberships = wedding.memberships.all()
 
-    if not WeddingMembership.objects.filter(
-            wedding=wedding,
-            user=invited_by,
-    ).exists():
+    if not memberships.filter(user=invited_by).exists():
         raise PermissionDenied(
             "You are not a member of this wedding."
         )
+
+    if memberships.count() >= 2:
+        raise ValidationError("This wedding already has two members.")
 
     # 2. Validate and normalize email
     if not isinstance(email, str):
@@ -52,10 +54,7 @@ def create_partner_invitation(*, wedding, invited_by, email):
     validate_email(email)
 
     # 3. Prevent inviting existing members
-    if WeddingMembership.objects.filter(
-            wedding=wedding,
-            user__email__iexact=email,
-    ).exists():
+    if memberships.filter(user__email__iexact=email).exists():
         raise ValidationError(
             "This user is already a wedding member."
         )
@@ -76,9 +75,7 @@ def create_partner_invitation(*, wedding, invited_by, email):
     # 5. Generate a secure invitation token
     token = secrets.token_urlsafe(32)
 
-    token_hash = hashlib.sha256(
-        token.encode("utf-8")
-    ).hexdigest()
+    token_hash = _invitation_token_hash(token)
 
     # 6. Set expiration date
     expires_at = now + timedelta(days=7)
@@ -94,3 +91,57 @@ def create_partner_invitation(*, wedding, invited_by, email):
     )
 
     return invitation, token
+
+
+def _invitation_token_hash(token):
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def _require_pending_invitation(invitation):
+    if (
+        invitation is None
+        or invitation.status != WeddingInvitation.InvitationStatus.PENDING
+        or invitation.expires_at <= timezone.now()
+    ):
+        raise Http404("Invitation unavailable.")
+    return invitation
+
+
+def preview_partner_invitation(*, token):
+    invitation = _require_pending_invitation(
+        WeddingInvitation.objects.select_related("wedding")
+        .filter(token_hash=_invitation_token_hash(token))
+        .first()
+    )
+    return {"name": invitation.wedding.name}
+
+
+@transaction.atomic
+def accept_partner_invitation(*, user, token):
+    _require_authenticated_user(user)
+    invitations = WeddingInvitation.objects.filter(token_hash=_invitation_token_hash(token))
+    wedding_id = invitations.values_list("wedding_id", flat=True).first()
+    if wedding_id is None:
+        raise Http404("Invitation unavailable.")
+
+    # Use the same wedding-first lock order as invitation creation.
+    wedding = Wedding.objects.select_for_update().filter(pk=wedding_id).first()
+    if wedding is None:
+        raise Http404("Invitation unavailable.")
+    invitation = _require_pending_invitation(
+        invitations.select_for_update().filter(wedding=wedding).first()
+    )
+
+    # The privately shared token is the access grant. Account email is unverified.
+    if user.pk == invitation.invited_by_id or user.email.casefold() != invitation.invited_email.casefold():
+        raise PermissionDenied("This account cannot accept the invitation.")
+
+    memberships = wedding.memberships.all()
+    if memberships.filter(user=user).exists() or memberships.count() >= 2:
+        raise ValidationError("This wedding cannot accept another membership.")
+
+    WeddingMembership.objects.create(wedding=wedding, user=user)
+    invitation.status = WeddingInvitation.InvitationStatus.ACCEPTED
+    invitation.accepted_at = timezone.now()
+    invitation.save(update_fields=["status", "accepted_at"])
+    return wedding
