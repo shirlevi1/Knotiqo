@@ -9,4 +9,5 @@ urlpatterns = [
     path("api/weddings/", include("weddings.urls")),
     path("api/wedding-invitations/", include(invitation_urlpatterns)),
     path("api/auth/", include("accounts.urls")),
+    path("api/ai/", include("ai_assistant.urls")),
 ]

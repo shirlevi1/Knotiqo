@@ -18,7 +18,18 @@ Use this skill when the user asks about:
 - Budget overruns
 - Comparing wedding costs
 
-## Workflow
+## Verified breakdown supplied by Django
+Treat the verified budget breakdown as the sole source of financial figures.
+Use the supplied budget, expenses, balance, and budget status as given.
+Do not call tools, recalculate, estimate additional costs, or return new totals.
+All amounts are in ILS. A negative remaining budget indicates an overrun.
+
+Return only concise, fluent Hebrew prose. In two or three sentences,
+explain what the breakdown means and give one practical recommendation.
+The API displays the verified amounts separately, so omit numeric amounts
+from the prose. Do not return JSON.
+
+## Learning prototype workflow without a supplied breakdown
 1. Identify the total budget and known expenses.
 2. Identify the number of guests and meal price.
 3. Use calculate_venue_cost to calculate meal costs.
@@ -26,7 +37,7 @@ Use this skill when the user asks about:
 5. Check whether the budget is exceeded.
 6. Explain the result in Hebrew.
 
-## Rules
+## Learning prototype rules
 - Always use available calculation tools.
 - Never invent missing prices or expenses.
 - Ask for missing information when it is required.
@@ -35,7 +46,7 @@ Use this skill when the user asks about:
 - Distinguish confirmed costs from estimates.
 - Provide practical recommendations based on the available data.
 
-## Response format
+## Learning prototype response format
 Provide:
 1. Total budget
 2. Known expenses
