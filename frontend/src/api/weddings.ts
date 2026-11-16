@@ -6,6 +6,10 @@ export type Wedding = {
     wedding_date: string | null;
 };
 
+type WeddingMembership = { display_name: string | null };
+
+export type WeddingDetails = Wedding & { memberships: WeddingMembership[] };
+
 export type CreateWeddingInput = Pick<Wedding, "name" | "wedding_date">;
 export type WeddingFieldErrors = Partial<Record<keyof CreateWeddingInput, string>>;
 
@@ -49,10 +53,21 @@ async function readResponse(response: Response): Promise<unknown> {
     }
 }
 
-export async function getWeddings(signal: AbortSignal): Promise<Wedding[]> {
-    const response = await fetch("/api/weddings/", { credentials: "same-origin", signal });
+function isWeddingMembership(value: unknown): value is WeddingMembership {
+    return typeof value === "object" && value !== null
+        && "display_name" in value
+        && (value.display_name === null || typeof value.display_name === "string");
+}
+
+function isWeddingDetails(value: unknown): value is WeddingDetails {
+    return isWedding(value) && "memberships" in value
+        && Array.isArray(value.memberships) && value.memberships.every(isWeddingMembership);
+}
+
+export async function getWeddings(signal: AbortSignal): Promise<WeddingDetails[]> {
+    const response = await fetch("/api/weddings/?include=memberships", { credentials: "same-origin", signal });
     const data = await readResponse(response);
-    if (!Array.isArray(data) || !data.every(isWedding)) {
+    if (!Array.isArray(data) || !data.every(isWeddingDetails)) {
         throw new WeddingApiError("התקבלה תשובה לא צפויה מהשרת. נסו לטעון שוב.");
     }
     return data;

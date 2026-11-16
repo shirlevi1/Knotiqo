@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import accept_invitation, create_invitation, my_weddings, validate_invitation
+from .views import accept_invitation, create_invitation, my_weddings, validate_invitation, wedding_details
 
 invitation_urlpatterns = [
     path("validate/", validate_invitation, name="validate-invitation"),
@@ -8,6 +8,7 @@ invitation_urlpatterns = [
 
 urlpatterns = [
     path("", my_weddings, name="my-weddings"),
+    path("<int:wedding_id>/", wedding_details, name="wedding-details"),
     path(
         "<int:wedding_id>/invitations/",
         create_invitation,

@@ -83,6 +83,12 @@ class InvitationAcceptanceTests(TestCase):
             refreshed = APIClient()
             refreshed.force_login(member)
             self.assertEqual(refreshed.get("/api/weddings/").json(), [response.json()])
+            details = refreshed.get(reverse("wedding-details", args=[self.wedding.pk]))
+            self.assertEqual(details.status_code, 200)
+            self.assertEqual(details.json(), {
+                **response.json(),
+                "memberships": [{"display_name": "owner"}, {"display_name": "partner"}],
+            })
 
     def post_as(self, user, payload=None):
         client = APIClient()

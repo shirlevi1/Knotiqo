@@ -4,8 +4,8 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .serializers import WeddingSerializer
-from .services import create_wedding, weddings_for_user
+from .serializers import WeddingDetailsSerializer, WeddingSerializer
+from .services import create_wedding, wedding_details_for_user, weddings_for_user
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.shortcuts import get_object_or_404
 from django.views.decorators.cache import never_cache
@@ -15,6 +15,7 @@ from .models import Wedding
 from .serializers import CreateInvitationSerializer, InvitationTokenSerializer
 from .services import accept_partner_invitation, create_partner_invitation, preview_partner_invitation
 
+@never_cache
 @api_view(["GET", "POST"])
 @authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -25,10 +26,19 @@ def my_weddings(request):
         wedding = create_wedding(user=request.user, **serializer.validated_data)
         return Response(WeddingSerializer(wedding).data, status=201)
 
-    weddings = weddings_for_user(user=request.user)
+    include_memberships = request.query_params.get("include") == "memberships"
+    weddings = weddings_for_user(user=request.user, include_memberships=include_memberships)
+    serializer_class = WeddingDetailsSerializer if include_memberships else WeddingSerializer
+    return Response(serializer_class(weddings, many=True).data)
 
 
-    return Response(WeddingSerializer(weddings, many=True).data)
+@never_cache
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication])
+@permission_classes([IsAuthenticated])
+def wedding_details(request, wedding_id):
+    wedding = wedding_details_for_user(user=request.user, wedding_id=wedding_id)
+    return Response(WeddingDetailsSerializer(wedding).data)
 
 @never_cache
 @api_view(["POST"])

@@ -28,3 +28,21 @@
 .wedding-summary { padding: 20px; background: var(--color-surface-soft); border: 1px solid var(--color-border); border-radius: 12px; }
 .wedding-summary h3 { margin: 0; font-size: 26px; overflow-wrap: anywhere; }
 .wedding-summary p { margin-block-end: 0; }
+.wedding-members {
+    margin-block-start: 16px;
+    padding-block-start: 12px;
+    border-block-start: 1px solid var(--color-border);
+    overflow-wrap: anywhere;
+}
+.wedding-members h4 { margin-block: 0 8px; }
+.wedding-members ul { padding-inline-start: 24px; }
+.wedding-refresh {
+    min-height: 44px;
+    padding-inline: 8px;
+    border: 0;
+    background: transparent;
+    color: var(--color-primary-hover);
+    text-decoration: underline;
+    cursor: pointer;
+    font: inherit;
+}

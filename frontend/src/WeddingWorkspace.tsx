@@ -2,24 +2,28 @@
 import { useEffect, useState } from "react";
 import CreateWedding from "./CreateWedding";
 import PartnerInvitation from "./components/PartnerInvitation";
-import { getWeddings, WeddingApiError, type Wedding } from "./api/weddings";
+import { getWeddings, WeddingApiError, type WeddingDetails } from "./api/weddings";
 import "./WeddingWorkspace.css";
 
 type State =
     | { status: "loading" }
     | { status: "error"; message: string }
-    | { status: "ready"; weddings: Wedding[] };
+    | { status: "ready"; weddings: WeddingDetails[] };
 
 export default function WeddingWorkspace({ preferredWeddingId }: { preferredWeddingId?: number }) {
     const [state, setState] = useState<State>({ status: "loading" });
     const [attempt, setAttempt] = useState(0);
 
     useEffect(() => {
+        const refresh = () => setAttempt((value) => value + 1);
+        window.addEventListener("focus", refresh);
+        return () => window.removeEventListener("focus", refresh);
+    }, []);
+
+    useEffect(() => {
         const controller = new AbortController();
 
         async function load() {
-            setState({ status: "loading" });
-
             try {
                 const weddings = await getWeddings(controller.signal);
                 const preferredIndex = weddings.findIndex(({ id }) => id === preferredWeddingId);
@@ -60,7 +64,10 @@ export default function WeddingWorkspace({ preferredWeddingId }: { preferredWedd
                 <button
                     className="wedding-button"
                     type="button"
-                    onClick={() => setAttempt((value) => value + 1)}
+                    onClick={() => {
+                        setState({ status: "loading" });
+                        setAttempt((value) => value + 1);
+                    }}
                 >
                     טעינה מחדש
                 </button>
@@ -71,9 +78,10 @@ export default function WeddingWorkspace({ preferredWeddingId }: { preferredWedd
     if (state.weddings.length === 0) {
         return (
             <CreateWedding
-                onCreated={(wedding) =>
-                    setState({ status: "ready", weddings: [wedding] })
-                }
+                onCreated={() => {
+                    setState({ status: "loading" });
+                    setAttempt((value) => value + 1);
+                }}
             />
         );
     }
@@ -81,6 +89,7 @@ export default function WeddingWorkspace({ preferredWeddingId }: { preferredWedd
     return (
         <section
             className="wedding-workspace"
+            dir="rtl"
             aria-labelledby="my-weddings-title"
         >
             <h2 id="my-weddings-title">
@@ -95,10 +104,16 @@ export default function WeddingWorkspace({ preferredWeddingId }: { preferredWedd
                 </p>
             )}
 
+            <button className="wedding-refresh" type="button"
+                onClick={() => setAttempt((value) => value + 1)}>
+                רענון פרטי החתונה
+            </button>
+
             <ul className="wedding-list">
                 {state.weddings.map((wedding) => (
                     <li className="wedding-summary" key={wedding.id}>
                         <h3>{wedding.name}</h3>
+                        <p>מספר חתונה {wedding.id}</p>
 
                         <p>
                             {wedding.wedding_date ? (
@@ -115,7 +130,22 @@ export default function WeddingWorkspace({ preferredWeddingId }: { preferredWedd
                             )}
                         </p>
 
-                        <PartnerInvitation weddingId={wedding.id} />
+                        <div className="wedding-members">
+                            <h4>חברים במרחב החתונה</h4>
+                            <ul>
+                                {wedding.memberships.map(({ display_name }, index) => (
+                                    <li key={index}>{display_name ?? "חבר/ה במרחב"}</li>
+                                ))}
+                            </ul>
+                            {wedding.memberships.length >= 2 ? (
+                                <p>שני בני הזוג מחוברים למרחב המשותף.</p>
+                            ) : (
+                                <>
+                                    <p>ממתינים להצטרפות של בן או בת הזוג.</p>
+                                    <PartnerInvitation weddingId={wedding.id} />
+                                </>
+                            )}
+                        </div>
                     </li>
                 ))}
             </ul>

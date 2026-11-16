@@ -25,6 +25,23 @@ class WeddingSerializer(serializers.ModelSerializer):
         return super().to_internal_value(data)
 
 
+class WeddingMemberSerializer(serializers.Serializer):
+    display_name = serializers.SerializerMethodField()
+
+    def get_display_name(self, membership):
+        user = membership.user
+        username = user.get_username()
+        return user.get_full_name() or (username if "@" not in username else None)
+
+
+class WeddingDetailsSerializer(WeddingSerializer):
+    memberships = WeddingMemberSerializer(many=True, read_only=True)
+
+    class Meta(WeddingSerializer.Meta):
+        fields = [*WeddingSerializer.Meta.fields, "memberships"]
+        read_only_fields = fields
+
+
 class CreateInvitationSerializer(serializers.Serializer):
     email = serializers.EmailField()
 

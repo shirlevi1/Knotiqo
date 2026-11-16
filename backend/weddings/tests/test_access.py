@@ -1,7 +1,10 @@
 
+from datetime import date
+
 from django.contrib.auth import get_user_model
 from django.conf import settings
 from django.test import TestCase
+from django.urls import reverse
 from rest_framework.test import APIClient
 
 from weddings.models import Wedding, WeddingMembership
@@ -14,6 +17,9 @@ class WeddingAccessTests(TestCase):
 
         self.bride = User.objects.create_user(
             username="bride",
+            first_name="Dana",
+            last_name="Levi",
+            email="private@example.com",
             password="test-password-1"
         )
 
@@ -28,7 +34,8 @@ class WeddingAccessTests(TestCase):
         )
 
         self.wedding = Wedding.objects.create(
-            name="Our Wedding"
+            name="Our Wedding",
+            wedding_date=date(2027, 6, 15),
         )
 
         WeddingMembership.objects.create(
@@ -42,6 +49,81 @@ class WeddingAccessTests(TestCase):
         )
 
         self.client = APIClient()
+        self.details_url = reverse("wedding-details", args=[self.wedding.pk])
+
+    def test_both_members_can_retrieve_the_same_details(self):
+        expected = {
+            "id": self.wedding.pk,
+            "name": "Our Wedding",
+            "wedding_date": "2027-06-15",
+            "memberships": [{"display_name": "Dana Levi"}, {"display_name": "partner"}],
+        }
+        for user in (self.bride, self.partner):
+            with self.subTest(user=user.username):
+                client = APIClient(enforce_csrf_checks=True)
+                client.force_login(user)
+                response = client.get(self.details_url)
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.json(), expected)
+                self.assertIn("no-store", response.headers["Cache-Control"])
+
+    def test_single_membership_and_missing_date(self):
+        wedding = Wedding.objects.create(name="New Wedding")
+        WeddingMembership.objects.create(wedding=wedding, user=self.bride)
+        self.client.force_authenticate(user=self.bride)
+
+        response = self.client.get(reverse("wedding-details", args=[wedding.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {
+            "id": wedding.pk,
+            "name": "New Wedding",
+            "wedding_date": None,
+            "memberships": [{"display_name": "Dana Levi"}],
+        })
+
+    def test_non_member_cannot_distinguish_private_wedding_from_missing_wedding(self):
+        self.client.force_authenticate(user=self.stranger)
+        forbidden = self.client.get(self.details_url)
+        missing = self.client.get(reverse("wedding-details", args=[0]))
+        self.assertEqual(forbidden.status_code, 404)
+        self.assertEqual(forbidden.json(), missing.json())
+        self.assertEqual(missing.status_code, 404)
+
+    def test_anonymous_user_cannot_retrieve_details(self):
+        response = self.client.get(self.details_url)
+        self.assertEqual(response.status_code, 403)
+        self.assertNotIn("memberships", response.json())
+
+    def test_expanded_list_prefetches_memberships_for_authorized_weddings(self):
+        second = Wedding.objects.create(name="Second Wedding")
+        WeddingMembership.objects.create(wedding=second, user=self.bride)
+        WeddingMembership.objects.create(wedding=second, user=self.stranger)
+        private = Wedding.objects.create(name="Private Wedding")
+        WeddingMembership.objects.create(wedding=private, user=self.stranger)
+        self.client.force_authenticate(user=self.bride)
+
+        with self.assertNumQueries(2):
+            response = self.client.get("/api/weddings/?include=memberships")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            [(wedding["id"], wedding["memberships"]) for wedding in response.json()],
+            [
+                (self.wedding.pk, [{"display_name": "Dana Levi"}, {"display_name": "partner"}]),
+                (second.pk, [{"display_name": "Dana Levi"}, {"display_name": "stranger"}]),
+            ],
+        )
+
+    def test_email_like_login_name_is_not_exposed_as_display_name(self):
+        self.partner.username = "private-login@example.com"
+        self.partner.save(update_fields=["username"])
+        self.client.force_authenticate(user=self.bride)
+
+        response = self.client.get(self.details_url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["memberships"][1], {"display_name": None})
 
     def test_both_members_can_see_wedding(self):
         for user in [self.bride, self.partner]:

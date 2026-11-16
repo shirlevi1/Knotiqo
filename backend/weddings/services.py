@@ -1,6 +1,8 @@
 from django.core.exceptions import PermissionDenied
 from django.http import Http404
 from django.db import transaction
+from django.db.models import Prefetch
+from django.shortcuts import get_object_or_404
 from .models import Wedding, WeddingMembership,WeddingInvitation
 import secrets
 import hashlib
@@ -15,10 +17,25 @@ def _require_authenticated_user(user):
         raise PermissionDenied("An active authenticated user is required.")
 
 
-def weddings_for_user(*, user):
+def weddings_for_user(*, user, include_memberships=False):
     """Return only weddings belonging to the acting user."""
     _require_authenticated_user(user)
-    return Wedding.objects.filter(members=user).order_by("id")
+    weddings = Wedding.objects.filter(members=user).order_by("id")
+    if include_memberships:
+        memberships = (
+            WeddingMembership.objects.select_related("user")
+            .only("wedding_id", "user_id", "user__first_name", "user__last_name", "user__username")
+            .order_by("id")
+        )
+        weddings = weddings.prefetch_related(Prefetch("memberships", queryset=memberships))
+    return weddings
+
+
+def wedding_details_for_user(*, user, wedding_id):
+    return get_object_or_404(
+        weddings_for_user(user=user, include_memberships=True),
+        pk=wedding_id,
+    )
 
 
 @transaction.atomic
