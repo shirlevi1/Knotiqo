@@ -1,6 +1,7 @@
 
 import { useEffect, useState } from "react";
 import CreateWedding from "./CreateWedding";
+import BudgetAssistant from "./components/BudgetAssistant";
 import PartnerInvitation from "./components/PartnerInvitation";
 import { getWeddings, WeddingApiError, type WeddingDetails } from "./api/weddings";
 import "./WeddingWorkspace.css";
@@ -146,6 +147,7 @@ export default function WeddingWorkspace({ preferredWeddingId }: { preferredWedd
                                 </>
                             )}
                         </div>
+                        <BudgetAssistant weddingId={wedding.id} />
                     </li>
                 ))}
             </ul>

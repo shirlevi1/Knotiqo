@@ -1,0 +1,59 @@
+.budget-assistant {
+    margin-block-start: 18px;
+    padding: 12px clamp(10px, 3vw, 20px);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    background: var(--color-surface);
+    overflow-wrap: anywhere;
+}
+
+.budget-assistant summary {
+    padding-block: 11px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.budget-assistant fieldset {
+    border: 0;
+    padding: 0;
+    margin: 8px 0 0;
+    min-inline-size: 0;
+}
+
+.budget-fields {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+    column-gap: 16px;
+}
+
+.budget-assistant .budget-error {
+    color: var(--color-error);
+}
+
+.budget-results section {
+    margin-block-start: 16px;
+    padding: 12px;
+    background: var(--color-surface-soft);
+    border-radius: 8px;
+}
+
+.budget-results h4 {
+    margin-block: 0 8px;
+}
+
+.budget-results dl {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 6px 12px;
+    margin-block: 8px;
+}
+
+.budget-results dd {
+    margin: 0;
+    text-align: end;
+    font-variant-numeric: tabular-nums;
+}
+
+.budget-recommendation {
+    white-space: pre-line;
+}
