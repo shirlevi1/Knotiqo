@@ -39,12 +39,26 @@ def wedding_details_for_user(*, user, wedding_id):
 
 
 @transaction.atomic
-def create_wedding(*, user, name, wedding_date=None):
+def create_wedding(*, user, name, wedding_date=None, creator_display_name="", partner_display_name=""):
     """Create a wedding and its first membership from validated input."""
     _require_authenticated_user(user)
-    wedding = Wedding.objects.create(name=name, wedding_date=wedding_date)
+    wedding = Wedding.objects.create(
+        name=name,
+        wedding_date=wedding_date,
+        creator_display_name=creator_display_name,
+        partner_display_name=partner_display_name,
+    )
     WeddingMembership.objects.create(wedding=wedding, user=user)
     return wedding
+
+
+def update_couple_names(*, user, wedding_id, creator_display_name, partner_display_name):
+    updated = weddings_for_user(user=user).filter(pk=wedding_id).update(
+        creator_display_name=creator_display_name,
+        partner_display_name=partner_display_name,
+    )
+    if not updated:
+        raise Http404
 
 @transaction.atomic
 def create_partner_invitation(*, wedding, invited_by, email):

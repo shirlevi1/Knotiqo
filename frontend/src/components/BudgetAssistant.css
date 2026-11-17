@@ -1,51 +1,36 @@
 .budget-assistant {
-    margin-block-start: 18px;
-    padding: 12px clamp(10px, 3vw, 20px);
-    border: 1px solid var(--color-border);
-    border-radius: 8px;
-    background: var(--color-surface);
+    padding: var(--space-3) clamp(14px, 3vw, 24px);
     overflow-wrap: anywhere;
 }
 
 .budget-assistant summary {
-    padding-block: 11px;
-    font-weight: 600;
+    min-block-size: 44px;
+    padding-block: var(--space-2);
+    font: 500 21px/1.35 var(--font-heading);
     cursor: pointer;
 }
 
-.budget-assistant fieldset {
-    border: 0;
-    padding: 0;
-    margin: 8px 0 0;
-    min-inline-size: 0;
-}
+.budget-assistant summary::marker { color: var(--color-link); }
+.budget-assistant form { margin-block: var(--space-2); }
 
 .budget-fields {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
-    column-gap: 16px;
-}
-
-.budget-assistant .budget-error {
-    color: var(--color-error);
+    gap: 0 var(--space-4);
 }
 
 .budget-results section {
-    margin-block-start: 16px;
-    padding: 12px;
-    background: var(--color-surface-soft);
-    border-radius: 8px;
+    margin-block-start: var(--space-4);
+    padding: var(--space-4);
 }
 
-.budget-results h4 {
-    margin-block: 0 8px;
-}
+.budget-results h4 { margin-block: 0 var(--space-2); font-size: 21px; }
 
 .budget-results dl {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 6px 12px;
-    margin-block: 8px;
+    gap: 6px var(--space-3);
+    margin-block: var(--space-2);
 }
 
 .budget-results dd {
@@ -54,6 +39,4 @@
     font-variant-numeric: tabular-nums;
 }
 
-.budget-recommendation {
-    white-space: pre-line;
-}
+.budget-recommendation { margin-block-end: 0; white-space: pre-line; }

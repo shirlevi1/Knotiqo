@@ -25,6 +25,7 @@ class WeddingAccessTests(TestCase):
 
         self.partner = User.objects.create_user(
             username="partner",
+            first_name="Yuval",
             password="test-password-2"
         )
 
@@ -56,7 +57,12 @@ class WeddingAccessTests(TestCase):
             "id": self.wedding.pk,
             "name": "Our Wedding",
             "wedding_date": "2027-06-15",
-            "memberships": [{"display_name": "Dana Levi"}, {"display_name": "partner"}],
+            "creator_display_name": "",
+            "partner_display_name": "",
+            "memberships": [
+                {"display_name": "Dana Levi", "first_name": "Dana"},
+                {"display_name": "Yuval", "first_name": "Yuval"},
+            ],
         }
         for user in (self.bride, self.partner):
             with self.subTest(user=user.username):
@@ -66,6 +72,9 @@ class WeddingAccessTests(TestCase):
                 self.assertEqual(response.status_code, 200)
                 self.assertEqual(response.json(), expected)
                 self.assertIn("no-store", response.headers["Cache-Control"])
+                workspace = client.get("/api/weddings/?include=memberships")
+                self.assertEqual(workspace.status_code, 200)
+                self.assertEqual(workspace.json(), [expected])
 
     def test_single_membership_and_missing_date(self):
         wedding = Wedding.objects.create(name="New Wedding")
@@ -79,7 +88,9 @@ class WeddingAccessTests(TestCase):
             "id": wedding.pk,
             "name": "New Wedding",
             "wedding_date": None,
-            "memberships": [{"display_name": "Dana Levi"}],
+            "creator_display_name": "",
+            "partner_display_name": "",
+            "memberships": [{"display_name": "Dana Levi", "first_name": "Dana"}],
         })
 
     def test_non_member_cannot_distinguish_private_wedding_from_missing_wedding(self):
@@ -110,20 +121,27 @@ class WeddingAccessTests(TestCase):
         self.assertEqual(
             [(wedding["id"], wedding["memberships"]) for wedding in response.json()],
             [
-                (self.wedding.pk, [{"display_name": "Dana Levi"}, {"display_name": "partner"}]),
-                (second.pk, [{"display_name": "Dana Levi"}, {"display_name": "stranger"}]),
+                (self.wedding.pk, [
+                    {"display_name": "Dana Levi", "first_name": "Dana"},
+                    {"display_name": "Yuval", "first_name": "Yuval"},
+                ]),
+                (second.pk, [
+                    {"display_name": "Dana Levi", "first_name": "Dana"},
+                    {"display_name": "stranger", "first_name": None},
+                ]),
             ],
         )
 
     def test_email_like_login_name_is_not_exposed_as_display_name(self):
         self.partner.username = "private-login@example.com"
-        self.partner.save(update_fields=["username"])
+        self.partner.first_name = ""
+        self.partner.save(update_fields=["username", "first_name"])
         self.client.force_authenticate(user=self.bride)
 
         response = self.client.get(self.details_url)
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["memberships"][1], {"display_name": None})
+        self.assertEqual(response.json()["memberships"][1], {"display_name": None, "first_name": None})
 
     def test_both_members_can_see_wedding(self):
         for user in [self.bride, self.partner]:

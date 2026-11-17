@@ -134,22 +134,22 @@ export default function Register({
     }
 
     return (
-        <div className="landing-page" dir="rtl">
-            <header className="register-header">
-        <span className="wordmark" lang="en">
-          Knotiqo
-          <span lang="he">מתחילים את הפרק הבא</span>
-        </span>
+        <div className="welcome-page register-shell" dir="rtl">
+            <header className="app-header">
+                <span className="wordmark" lang="en">
+                    Knotiqo
+                    <span lang="he">מתחילים את הפרק הבא</span>
+                </span>
             </header>
 
             <main className="register-page">
                 <section
-                    className="login-card register-card"
+                    className="login-card register-card ui-card"
                     aria-labelledby="register-title"
                 >
                     <p className="eyebrow">הסיפור שלכם מתחיל כאן</p>
 
-                    <h1 id="register-title">נעים להכיר 🤍</h1>
+                    <h1 id="register-title">נעים להכיר</h1>
 
                     <p className="card-copy">
                         עוד רגע יהיה לכם מקום משלכם לתכנן בו את
@@ -157,12 +157,14 @@ export default function Register({
                     </p>
 
                     <form onSubmit={handleSubmit}>
-                        <div>
+                        <div className="ui-field">
                             <label htmlFor="register-username">
                                 שם משתמש
                             </label>
                             <input
                                 id="register-username"
+                                className="ui-input"
+                                dir="ltr"
                                 autoComplete="username"
                                 value={form.username}
                                 onChange={(event) =>
@@ -172,12 +174,14 @@ export default function Register({
                             />
                         </div>
 
-                        <div>
+                        <div className="ui-field">
                             <label htmlFor="register-email">
                                 כתובת אימייל
                             </label>
                             <input
                                 id="register-email"
+                                className="ui-input"
+                                dir="ltr"
                                 type="email"
                                 autoComplete="email"
                                 value={form.email}
@@ -188,12 +192,14 @@ export default function Register({
                             />
                         </div>
 
-                        <div>
+                        <div className="ui-field">
                             <label htmlFor="register-password">
                                 סיסמה
                             </label>
                             <input
                                 id="register-password"
+                                className="ui-input"
+                                dir="ltr"
                                 type={showPassword ? "text" : "password"}
                                 autoComplete="new-password"
                                 value={form.password}
@@ -204,12 +210,14 @@ export default function Register({
                             />
                         </div>
 
-                        <div>
+                        <div className="ui-field">
                             <label htmlFor="register-confirm-password">
                                 אימות סיסמה
                             </label>
                             <input
                                 id="register-confirm-password"
+                                className="ui-input"
+                                dir="ltr"
                                 type={showPassword ? "text" : "password"}
                                 autoComplete="new-password"
                                 value={form.confirm_password}
@@ -239,9 +247,9 @@ export default function Register({
                             הימנעו מסיסמה נפוצה או דומה לפרטי החשבון.
                         </p>
 
-                        {error && <p role="alert">{error}</p>}
+                        {error && <p className="ui-error" role="alert">{error}</p>}
 
-                        <button type="submit" disabled={loading}>
+                        <button className="ui-button" type="submit" disabled={loading}>
                             {loading ? "יוצרים חשבון..." : "יוצרים חשבון"}
                             <span aria-hidden="true">←</span>
                         </button>
@@ -251,7 +259,7 @@ export default function Register({
                         כבר יש לכם חשבון?{" "}
                         <button
                             type="button"
-                            className="auth-text-button"
+                            className="ui-button ui-button--text"
                             onClick={onBack}
                         >
                             חוזרים להתחברות

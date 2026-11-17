@@ -2,18 +2,38 @@ from rest_framework import serializers
 from .models import Wedding
 
 
-class WeddingSerializer(serializers.ModelSerializer):
+class CoupleNameField(serializers.CharField):
+    def to_internal_value(self, data):
+        if not isinstance(data, str):
+            self.fail("invalid")
+        value = super().to_internal_value(data)
+        if not value.isprintable():
+            self.fail("invalid")
+        return value
+
+
+class CoupleNamesSerializer(serializers.ModelSerializer):
+    creator_display_name = CoupleNameField(max_length=80)
+    partner_display_name = CoupleNameField(max_length=80)
+
     class Meta:
         model = Wedding
-        fields = ["id", "name", "wedding_date"]
+        fields = ["creator_display_name", "partner_display_name"]
+
+    def to_internal_value(self, data):
+        writable_fields = {name for name, field in self.fields.items() if not field.read_only}
+        if isinstance(data, dict) and set(data) - writable_fields:
+            raise serializers.ValidationError({"non_field_errors": ["Unexpected fields."]})
+        return super().to_internal_value(data)
+
+
+class WeddingSerializer(CoupleNamesSerializer):
+    class Meta(CoupleNamesSerializer.Meta):
+        fields = ["id", "name", "wedding_date", *CoupleNamesSerializer.Meta.fields]
         read_only_fields = ["id"]
 
     def to_internal_value(self, data):
         if isinstance(data, dict):
-            if set(data) - {"name", "wedding_date"}:
-                raise serializers.ValidationError({
-                    "non_field_errors": ["Only name and wedding_date are accepted."],
-                })
             # DRF CharField normally coerces numbers to strings. Require JSON strings.
             if "name" in data and not isinstance(data["name"], str):
                 raise serializers.ValidationError({"name": ["Must be a string."]})
@@ -27,6 +47,10 @@ class WeddingSerializer(serializers.ModelSerializer):
 
 class WeddingMemberSerializer(serializers.Serializer):
     display_name = serializers.SerializerMethodField()
+    first_name = serializers.SerializerMethodField()
+
+    def get_first_name(self, membership):
+        return membership.user.first_name.strip() or None
 
     def get_display_name(self, membership):
         user = membership.user

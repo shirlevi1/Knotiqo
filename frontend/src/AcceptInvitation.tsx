@@ -60,32 +60,36 @@ export default function AcceptInvitation({
 
     return (
         <main className="welcome-page invitation-page" dir="rtl">
-            <a className="wordmark" href="/" lang="en">Knotiqo</a>
-            <section className="welcome-card invitation-card" aria-labelledby="invitation-title">
+            <header className="app-header">
+                <a className="wordmark" href="/" lang="en">Knotiqo<span lang="he">מתחילים את הפרק הבא</span></a>
+            </header>
+            <section className="ui-card invitation-card" aria-labelledby="invitation-title">
                 <h1 id="invitation-title">הזמנה לתכנון החתונה</h1>
-                {!token && <p role="alert">חסר קוד הזמנה. פתחו את הקישור המלא שקיבלתם.</p>}
-                {token && !preview && <p role="status">בודקים את ההזמנה...</p>}
-                {preview && "error" in preview && <p role="alert">{preview.error}</p>}
+                {!token && <p className="ui-error" role="alert">חסר קוד הזמנה. פתחו את הקישור המלא שקיבלתם.</p>}
+                {token && !preview && <p className="ui-status ui-status--loading" role="status">בודקים את ההזמנה...</p>}
+                {preview && "error" in preview && <p className="ui-error" role="alert">{preview.error}</p>}
                 {preview && "name" in preview && (
                     <>
                         <h2>{preview.name}</h2>
                         {signedIn ? (
                             <>
-                                <button className="wedding-button" type="button"
+                                <button className="ui-button" type="button"
                                     onClick={() => void handleAccept()} disabled={accepting || signingOut}>
                                     {accepting ? "מצטרפים לחתונה..." : "מאשרים ומצטרפים לחתונה"}
                                 </button>
-                                <button className="auth-text-button" type="button"
+                                <button className="ui-button ui-button--text" type="button"
                                     onClick={onLogout} disabled={accepting || signingOut}>
                                     {signingOut ? "מתנתקים..." : "התחברות עם חשבון אחר"}
                                 </button>
-                                {(acceptError || logoutError) && <p role="alert">{acceptError || logoutError}</p>}
+                                {(acceptError || logoutError) && <p className="ui-error" role="alert">{acceptError || logoutError}</p>}
                             </>
                         ) : (
                             <>
                                 <p>כדי להצטרף, התחברו או הירשמו עם כתובת האימייל שאליה נשלח הקישור.</p>
-                                <button className="wedding-button" type="button" onClick={onLogin}>התחברות</button>
-                                <button className="auth-text-button" type="button" onClick={onRegister}>הרשמה</button>
+                                <div className="invitation-actions">
+                                    <button className="ui-button" type="button" onClick={onLogin}>התחברות</button>
+                                    <button className="ui-button ui-button--secondary" type="button" onClick={onRegister}>הרשמה</button>
+                                </div>
                             </>
                         )}
                     </>

@@ -11,6 +11,9 @@ from weddings.models import Wedding, WeddingMembership
 from weddings.services import create_wedding
 
 
+COUPLE_NAMES = {"creator_display_name": "דנה", "partner_display_name": "Yuval"}
+
+
 class WeddingCreationTests(TestCase):
 
     @classmethod
@@ -33,7 +36,9 @@ class WeddingCreationTests(TestCase):
             "/api/weddings/",
             {
                 "name": "  Our Wedding  ",
-                "wedding_date": "2027-06-15"
+                "wedding_date": "2027-06-15",
+                "creator_display_name": " דנה ",
+                "partner_display_name": " Yuval ",
             },
             format="json",
         )
@@ -50,6 +55,7 @@ class WeddingCreationTests(TestCase):
                 "id": wedding.id,
                 "name": "Our Wedding",
                 "wedding_date": "2027-06-15",
+                **COUPLE_NAMES,
             }
         )
 
@@ -85,7 +91,7 @@ class WeddingCreationTests(TestCase):
             with self.subTest(payload=payload):
                 response = self.client.post(
                     "/api/weddings/",
-                    payload,
+                    {**payload, **COUPLE_NAMES},
                     format="json"
                 )
 
@@ -147,7 +153,7 @@ class WeddingCreationTests(TestCase):
             with self.subTest(payload=payload):
                 response = self.client.post(
                     "/api/weddings/",
-                    payload,
+                    {**COUPLE_NAMES, **payload} if isinstance(payload, dict) else payload,
                     format="json"
                 )
 
@@ -167,6 +173,7 @@ class WeddingCreationTests(TestCase):
                     "/api/weddings/",
                     {
                         "name": "Wedding",
+                        **COUPLE_NAMES,
                         field: self.other_user.id
                     },
                     format="json",
@@ -213,7 +220,7 @@ class WeddingCreationTests(TestCase):
         ):
             response = client.post(
                 "/api/weddings/",
-                {"name": "Blocked"},
+                {"name": "Blocked", **COUPLE_NAMES},
                 format="json",
                 **headers
             )
@@ -223,7 +230,7 @@ class WeddingCreationTests(TestCase):
 
         response = client.post(
             "/api/weddings/",
-            {"name": "Shared future"},
+            {"name": "Shared future", **COUPLE_NAMES},
             format="json",
             HTTP_X_CSRFTOKEN=client.cookies["csrftoken"].value,
         )

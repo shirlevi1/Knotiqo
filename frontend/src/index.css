@@ -44,9 +44,11 @@ input {
 }
 
 a:focus-visible,
-button:focus-visible {
+button:focus-visible,
+summary:focus-visible,
+input[type="checkbox"]:focus-visible {
   outline: 2px solid var(--color-focus);
-  outline-offset: 6px;
+  outline-offset: 3px;
 }
 
 
@@ -89,18 +91,22 @@ button:focus-visible {
   padding: 24px 0 10px;
 }
 
+.nav-shell,
+.app-header {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-nav);
+  box-shadow: var(--shadow-card);
+}
+
 .nav-shell {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
 
-  gap: 24px;
-  padding: 20px 30px;
+  gap: var(--space-6);
+  padding: var(--space-5) 30px;
 
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 24px;
-  box-shadow: var(--shadow-card);
 }
 
 .nav-side {
@@ -126,23 +132,6 @@ button:focus-visible {
   white-space: nowrap;
 }
 
-/* Subtle navigation link */
-
-.nav-link-subtle {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-
-  font-size: 13px;
-  color: var(--color-text-muted);
-
-  transition: color 0.2s ease;
-}
-
-.nav-link-subtle:hover {
-  color: var(--color-primary-hover);
-}
-
 /* Navigation button */
 
 .nav-cta {
@@ -154,23 +143,19 @@ button:focus-visible {
 
   background: var(--color-primary-soft);
   border: 1px solid var(--color-border);
-  border-radius: 50px;
+  border-radius: var(--radius-pill);
 
   color: var(--color-text);
-  font-size: 13px;
+  font-size: var(--type-note);
   font-weight: 600;
   white-space: nowrap;
 
-  transition:
-          background 0.2s ease,
-          color 0.2s ease,
-          transform 0.2s ease;
+  transition: background-color var(--transition-control), color var(--transition-control);
 }
 
 .nav-cta:hover {
   background: var(--color-primary);
   color: var(--color-on-primary);
-  transform: translateY(-1px);
 }
 
 
@@ -250,14 +235,14 @@ h1 span {
 
   padding-bottom: 8px;
 
-  border-bottom: 1px solid var(--color-champagne);
-  font-size: 13px;
+  border-bottom: 1px solid var(--color-input-border);
+  font-size: var(--type-note);
 
-  transition: color 0.2s ease;
+  transition: color var(--transition-control);
 }
 
 .text-link:hover {
-  color: var(--color-primary-hover);
+  color: var(--color-link);
 }
 
 
@@ -278,9 +263,9 @@ h1 span {
   /* Preserve the full composition, including the ring and its box. */
   object-fit: contain;
   object-position: center;
-  background: var(--color-ivory);
+  background: var(--color-surface-soft);
   border: 1px solid var(--color-border);
-  border-radius: 12px;
+  border-radius: var(--radius-card);
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -295,22 +280,16 @@ h1 span {
 .login-card {
   grid-area: login;
   direction: rtl;
-  padding: 32px 28px;
-
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  box-shadow: var(--shadow-card);
+  padding: var(--space-8) 28px;
 
   scroll-margin-top: 24px;
 }
 
-.login-card h2,
-.welcome-card h2 {
+.login-card h2 {
   margin: 0 0 10px;
 
   font-family: var(--font-heading);
-  font-size: 34px;
+  font-size: var(--type-title);
   font-weight: 400;
   line-height: 1.4;
 }
@@ -321,7 +300,7 @@ h1 span {
 .card-copy {
   margin: 0 0 30px;
 
-  font-size: 13px;
+  font-size: var(--type-note);
   line-height: 1.8;
   color: var(--color-text-muted);
 }
@@ -343,87 +322,25 @@ h1 span {
    8. LOGIN FORM
 ========================================= */
 
-.login-card form > div {
-  margin-bottom: 20px;
-}
-
-.login-card label {
-  display: block;
-  margin-bottom: 9px;
+.login-card .ui-field label {
+  margin-block-end: 9px;
   font-size: 12px;
 }
 
-.login-card input {
-  width: 100%;
-  min-height: 47px;
-  padding: 10px 12px;
-
-  background: var(--color-surface-soft);
-  border: 1px solid var(--color-input-border);
-  border-radius: var(--radius-control);
-
-  color: var(--color-text);
-  direction: ltr;
-  text-align: start;
-
-  transition:
-          border-color 0.2s ease,
-          background 0.2s ease;
-}
-
-.login-card input:hover {
-  border-color: var(--color-primary-hover);
-}
-
-.login-card input:focus {
-  background: var(--color-surface);
-  border-color: var(--color-focus);
-
-  outline: 2px solid var(--color-focus);
-  outline-offset: 2px;
-}
-
-/* Login submit button */
-
-.login-card button {
-  display: flex;
-  align-items: center;
+.login-card .ui-button[type="submit"] {
   justify-content: space-between;
-
-  width: 100%;
-  margin-top: 28px;
-  padding: 16px 20px;
-
-  background: var(--color-primary);
+  inline-size: 100%;
+  margin-block-start: 28px;
+  padding: var(--space-4) var(--space-5);
   border: 0;
-  border-radius: var(--radius-control);
-
-  color: var(--color-on-primary);
-  font-size: 14px;
-
-  cursor: pointer;
-
-  transition:
-          background 0.2s ease,
-          color 0.2s ease;
+  line-height: inherit;
 }
 
-.login-card button:hover:not(:disabled) {
-  background: var(--color-primary-hover);
-  color: var(--color-on-primary-hover);
-}
-
-.login-card button:disabled {
-  opacity: 0.65;
-  cursor: wait;
-}
-
-/* Form errors */
-
-.login-card [role="alert"] {
-  color: var(--color-error);
-  font-size: 13px;
-  line-height: 1.7;
+.login-card .ui-button--text {
+  min-block-size: 24px;
+  padding: 0 2px;
+  font-size: inherit;
+  font-weight: 600;
 }
 
 
@@ -432,45 +349,25 @@ h1 span {
 ========================================= */
 
 .welcome-page {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 48px 24px;
+  max-inline-size: 1160px;
+  margin-inline: auto;
+  padding: clamp(18px, 4vw, 48px) clamp(12px, 3vw, 28px);
 }
 
-.welcome-card {
-  margin-top: 60px;
-  padding: 48px 32px;
-
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  padding: var(--space-4) clamp(12px, 3vw, 30px);
 }
 
-.welcome-card .logout-button {
-  margin-top: 24px;
-  padding: 12px 24px;
+.app-header--workspace { justify-content: space-between; }
 
-  background: var(--color-primary);
-  color: var(--color-on-primary);
-
-  border: none;
-  border-radius: var(--radius-control);
-
-  font-family: var(--font-body);
-  cursor: pointer;
+@media (max-width: 460px) {
+  .app-header .wordmark { font-size: 34px; }
+  .app-header--workspace .ui-button { padding-inline: var(--space-3); }
 }
-
-.welcome-card .logout-button:hover:not(:disabled) {
-  background: var(--color-primary-hover);
-  color: var(--color-on-primary-hover);
-}
-
-.welcome-card .logout-button:disabled {
-  opacity: 0.65;
-  cursor: wait;
-}
-
-
 
 /* =========================================
    10. FOOTER
@@ -561,10 +458,6 @@ h1 span {
     display: none;
   }
 
-  .nav-link-subtle {
-    font-size: 12px;
-  }
-
   .nav-cta {
     padding: 10px 14px;
     font-size: 12px;
@@ -615,7 +508,6 @@ h1 span {
     font-size: 32px;
   }
 
-  .nav-link-subtle,
   .nav-cta {
     font-size: 11px;
   }
@@ -640,11 +532,8 @@ h1 span {
     scroll-behavior: auto;
   }
 
-  .nav-link-subtle,
   .nav-cta,
-  .text-link,
-  .login-card input,
-  .login-card button {
+  .text-link {
     transition: none;
   }
 }

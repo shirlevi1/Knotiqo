@@ -1,4 +1,4 @@
-/* Shared design tokens for the landing page and future product screens. */
+/* Knotiqo's login palette and shared interface tokens. */
 :root {
   color-scheme: light;
   --color-primary: #709CB4;
@@ -8,15 +8,13 @@
   --color-surface: #FFFFFF;
   --color-surface-soft: #F3F8FB;
   --color-text: #354C5A;
-  --color-muted: #748895;
   --color-border: #DCE9EF;
-  --color-champagne: #C6B69C;
-  --color-ivory: #FBF8F2;
 
   /* Readable small text and controls on the light palette. */
   --color-text-muted: #5E7482;
   --color-on-primary: #172F3E;
-  --color-on-primary-hover: #07151E;
+  --color-on-primary-hover: #03090D;
+  --color-link: #385F76;
   --color-focus: #527F98;
   --color-input-border: #748895;
   --color-error: #9A403E;
@@ -25,6 +23,21 @@
   --font-heading: "Frank Ruhl Libre", Georgia, serif;
   --font-body: "Heebo", Arial, sans-serif;
   --font-editorial: "Cormorant Garamond", Georgia, serif;
+  --type-title: 34px;
+  --type-section: clamp(24px, 3vw, 30px);
+  --type-label: 14px;
+  --type-note: 13px;
   --radius-control: 4px;
+  --radius-card: 12px;
+  --radius-nav: 24px;
+  --radius-pill: 50px;
+  --control-height: 47px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --transition-control: 200ms ease;
 }
 

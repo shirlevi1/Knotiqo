@@ -1,48 +1,122 @@
-/* Authenticated wedding creation and summaries; uses the shared theme. */
-.wedding-create, .wedding-workspace {
-    margin-block: 32px;
-    padding-block: 24px;
-    border-block-start: 1px solid var(--color-border);
-}
-.wedding-create > p, .wedding-summary p { color: var(--color-text-muted); }
-.wedding-create fieldset { border: 0; padding: 0; margin: 24px 0 0; min-width: 0; }
-.wedding-field { margin-block-end: 20px; }
-.wedding-field label { display: block; margin-block-end: 8px; font-size: 14px; }
-.wedding-field input {
-    width: 100%; min-height: 48px; padding: 12px;
-    background: var(--color-surface-soft); color: var(--color-text);
-    border: 1px solid var(--color-input-border); border-radius: var(--radius-control);
-}
-.wedding-field input[type="date"] { direction: ltr; }
-.wedding-field input:focus { outline: 2px solid var(--color-focus); outline-offset: 2px; }
-.wedding-field input[aria-invalid="true"] { border-color: var(--color-error); }
-.wedding-button {
-    padding: 14px 20px; min-height: 48px; max-width: 100%;
-    border: 0; border-radius: var(--radius-control); cursor: pointer;
-    background: var(--color-primary); color: var(--color-on-primary);
-}
-.wedding-button:hover:not(:disabled) { background: var(--color-primary-hover); color: var(--color-on-primary-hover); }
-.wedding-button:disabled, fieldset:disabled .wedding-button { opacity: .65; cursor: wait; }
-.wedding-error { color: var(--color-error); font-size: 14px; }
-.wedding-list { list-style: none; padding: 0; display: grid; gap: 16px; }
-.wedding-summary { padding: 20px; background: var(--color-surface-soft); border: 1px solid var(--color-border); border-radius: 12px; }
-.wedding-summary h3 { margin: 0; font-size: 26px; overflow-wrap: anywhere; }
-.wedding-summary p { margin-block-end: 0; }
-.wedding-members {
-    margin-block-start: 16px;
-    padding-block-start: 12px;
-    border-block-start: 1px solid var(--color-border);
+.workspace-hero {
+    margin-block: clamp(20px, 4vw, 44px) var(--space-5);
+    padding: clamp(30px, 6vw, 66px) clamp(16px, 5vw, 48px);
+    text-align: center;
     overflow-wrap: anywhere;
 }
-.wedding-members h4 { margin-block: 0 8px; }
-.wedding-members ul { padding-inline-start: 24px; }
-.wedding-refresh {
-    min-height: 44px;
-    padding-inline: 8px;
-    border: 0;
-    background: transparent;
-    color: var(--color-primary-hover);
-    text-decoration: underline;
-    cursor: pointer;
-    font: inherit;
+
+.workspace-hero .eyebrow { margin-block: 0 var(--space-4); }
+
+.workspace-hero h1 {
+    margin-block: 0;
+    font-size: clamp(30px, 5vw, 54px);
+    line-height: 1.15;
 }
+
+.workspace-names {
+    margin-block: var(--space-2) 0;
+    color: var(--color-link);
+    font-size: clamp(24px, 4vw, 40px);
+    font-weight: 400;
+    line-height: 1.25;
+}
+
+.workspace-subtitle {
+    margin-block: var(--space-4) 0;
+    color: var(--color-text-muted);
+}
+
+.couple-name-editor { margin-block-start: var(--space-4); }
+.couple-name-form {
+    margin-block-start: var(--space-3);
+    padding: var(--space-4);
+}
+.couple-name-fields {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+    gap: 0 var(--space-4);
+}
+.couple-name-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+
+.wedding-create,
+.wedding-summary {
+    padding: clamp(16px, 4vw, 40px);
+    overflow-wrap: anywhere;
+}
+
+.wedding-create {
+    max-inline-size: 620px;
+    margin: var(--space-6) auto;
+}
+
+.wedding-create h2,
+.wedding-workspace-header h2,
+.wedding-summary h3,
+.wedding-members h4 {
+    margin: 0;
+}
+
+.wedding-create h2,
+.wedding-workspace-header h2,
+.wedding-summary h3 {
+    font-size: var(--type-section);
+}
+
+.wedding-create > p,
+.wedding-meta,
+.wedding-members > p,
+.partner-invitation > p:not(.ui-error) {
+    color: var(--color-text-muted);
+}
+
+.wedding-create form { margin-block-start: var(--space-6); }
+
+.wedding-workspace-header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-3);
+    margin-block: var(--space-8) var(--space-4);
+}
+
+.wedding-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--space-5);
+}
+
+.wedding-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-4);
+    margin-block: var(--space-2) 0;
+    font-size: var(--type-label);
+}
+
+.wedding-tools {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+    align-items: start;
+    gap: var(--space-4);
+    margin-block-start: var(--space-6);
+}
+
+.wedding-members { padding: clamp(14px, 3vw, 24px); }
+.wedding-members h4 { font-size: 21px; }
+.wedding-members ul { margin-block: var(--space-2); padding-inline-start: var(--space-5); }
+.wedding-members > p { margin-block: var(--space-2) 0; }
+
+.partner-invitation {
+    margin-block-start: var(--space-4);
+    padding-block-start: var(--space-4);
+    border-block-start: 1px solid var(--color-border);
+}
+
+.partner-invitation :is(form, .invitation-success .ui-field) {
+    margin-block-start: var(--space-4);
+}
+
+.invitation-success p { margin-block: var(--space-2); }

@@ -61,14 +61,16 @@ export default function PartnerInvitation({ weddingId }: Props) {
 
             {!invitationUrl ? (
                 <form onSubmit={handleSubmit} aria-busy={loading}>
-                    <fieldset disabled={loading}>
-                        <div className="wedding-field">
+                    <fieldset className="ui-fieldset" disabled={loading}>
+                        <div className="ui-field">
                             <label htmlFor={`partner-email-${weddingId}`}>
                                 כתובת האימייל
                             </label>
 
                             <input
                                 id={`partner-email-${weddingId}`}
+                                className="ui-input"
+                                dir="ltr"
                                 type="email"
                                 value={email}
                                 onChange={(event) => setEmail(event.target.value)}
@@ -78,23 +80,25 @@ export default function PartnerInvitation({ weddingId }: Props) {
                             />
                         </div>
 
-                        <button className="wedding-button" type="submit">
+                        <button className="ui-button" type="submit">
                             {loading ? "יוצרים הזמנה..." : "יצירת קישור הזמנה"}
                         </button>
                     </fieldset>
                 </form>
             ) : (
                 <div className="invitation-success">
-                    <p role="status">ההזמנה נוצרה בהצלחה!</p>
+                    <p className="ui-status" role="status">ההזמנה נוצרה בהצלחה!</p>
                     <p>הקישור תקף לשבעה ימים.</p>
                     <p>שתפו את הקישור באופן פרטי עם מי שהזמנתם.</p>
 
-                    <div className="wedding-field">
+                    <div className="ui-field">
                         <label htmlFor={`invitation-link-${weddingId}`}>
                             קישור ההזמנה
                         </label>
                         <input
                             id={`invitation-link-${weddingId}`}
+                            className="ui-input"
+                            dir="ltr"
                             type="text"
                             value={invitationUrl}
                             readOnly
@@ -103,7 +107,7 @@ export default function PartnerInvitation({ weddingId }: Props) {
                     </div>
 
                     <button
-                        className="wedding-button"
+                        className="ui-button ui-button--secondary"
                         type="button"
                         onClick={handleCopy}
                     >
@@ -113,7 +117,7 @@ export default function PartnerInvitation({ weddingId }: Props) {
             )}
 
             {error && (
-                <p className="wedding-error" role="alert">
+                <p className="ui-error" role="alert">
                     {error}
                 </p>
             )}

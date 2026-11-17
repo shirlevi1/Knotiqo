@@ -4,6 +4,8 @@ from django.db import models
 
 class Wedding(models.Model):
     name = models.CharField(max_length=150)
+    creator_display_name = models.CharField(max_length=80, blank=True, default="")
+    partner_display_name = models.CharField(max_length=80, blank=True, default="")
     wedding_date = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

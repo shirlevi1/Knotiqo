@@ -75,6 +75,7 @@ def login_view(request):
     return JsonResponse({
         "id": user.id,
         "username": user.get_username(),
+        "first_name": user.first_name.strip() or None,
     })
 
 
@@ -93,7 +94,29 @@ def me_view(request):
     return JsonResponse({
         "id": request.user.id,
         "username": request.user.get_username(),
+        "first_name": request.user.first_name.strip() or None,
     })
+
+
+@require_POST
+@csrf_protect
+def update_profile_view(request):
+    user = request.user
+    if not user.is_authenticated or not user.is_active:
+        return JsonResponse({"error": "Not authenticated"}, status=401)
+
+    data = parse_json_body(request)
+    if data is None or set(data) != {"first_name"} or not isinstance(data["first_name"], str):
+        return JsonResponse({"error": "Only first_name is accepted"}, status=400)
+
+    first_name = data["first_name"].strip()
+    max_length = user._meta.get_field("first_name").max_length
+    if not first_name or len(first_name) > max_length or not first_name.isprintable():
+        return JsonResponse({"error": "Invalid first name"}, status=400)
+
+    user.first_name = first_name
+    user.save(update_fields=["first_name"])
+    return JsonResponse({"first_name": first_name})
 
 
 # ==========================================

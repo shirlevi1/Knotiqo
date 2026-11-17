@@ -244,9 +244,8 @@ export default function Login({ invitationToken }: { invitationToken?: string })
             <main
                 className="welcome-page"
                 dir="rtl"
-                role="status"
             >
-                <p>מכינים את המרחב שלכם...</p>
+                <p className="ui-panel ui-state ui-status ui-status--loading" role="status">מכינים את המרחב שלכם...</p>
             </main>
         );
     }
@@ -282,43 +281,22 @@ export default function Login({ invitationToken }: { invitationToken?: string })
     if (user) {
         return (
             <main className="welcome-page" dir="rtl">
-                <a className="wordmark" href="/" lang="en">
-                    Knotiqo
-                    <span lang="he">
-                        מתחילים את הפרק הבא
-                    </span>
-                </a>
-
-                <div className="welcome-card">
-                    <p className="eyebrow">
-                        הסיפור שלכם ממשיך כאן
-                    </p>
-
-                    <h2>
-                        איזה כיף שחזרת, {user.username}!
-                    </h2>
-
-                    <p>
-                        עוד צעד קטן בדרך ליום הגדול שלכם.
-                    </p>
-
-                    <WeddingWorkspace key={user.id} preferredWeddingId={joinedWeddingId} />
-
+                <header className="app-header app-header--workspace">
+                    <a className="wordmark" href="/" lang="en">
+                        Knotiqo
+                        <span lang="he">מתחילים את הפרק הבא</span>
+                    </a>
                     <button
-                        className="logout-button"
+                        className="ui-button ui-button--secondary"
                         type="button"
                         onClick={handleLogout}
                         disabled={loading}
                     >
-                        {loading ? "מתנתקת..." : "התנתקות"}
+                        {loading ? "מתנתקים..." : "התנתקות"}
                     </button>
-
-                    {error && (
-                        <p role="alert">
-                            {error}
-                        </p>
-                    )}
-                </div>
+                </header>
+                {error && <p className="ui-error" role="alert">{error}</p>}
+                <WeddingWorkspace key={user.id} preferredWeddingId={joinedWeddingId} />
             </main>
         );
     }
@@ -424,7 +402,7 @@ export default function Login({ invitationToken }: { invitationToken?: string })
                 {/* Login Form */}
 
                 <section
-                    className="login-card"
+                    className="login-card ui-card"
                     id="login"
                     aria-labelledby="login-title"
                 >
@@ -441,13 +419,15 @@ export default function Login({ invitationToken }: { invitationToken?: string })
                     </p>
 
                     <form onSubmit={handleLogin}>
-                        <div>
+                        <div className="ui-field">
                             <label htmlFor="username">
                                 שם משתמש
                             </label>
 
                             <input
                                 id="username"
+                                className="ui-input"
+                                dir="ltr"
                                 name="username"
                                 autoComplete="username"
                                 value={username}
@@ -458,13 +438,15 @@ export default function Login({ invitationToken }: { invitationToken?: string })
                             />
                         </div>
 
-                        <div>
+                        <div className="ui-field">
                             <label htmlFor="password">
                                 סיסמה
                             </label>
 
                             <input
                                 id="password"
+                                className="ui-input"
+                                dir="ltr"
                                 name="password"
                                 autoComplete="current-password"
                                 type="password"
@@ -477,6 +459,7 @@ export default function Login({ invitationToken }: { invitationToken?: string })
                         </div>
 
                         <button
+                            className="ui-button"
                             type="submit"
                             disabled={loading}
                         >
@@ -490,14 +473,14 @@ export default function Login({ invitationToken }: { invitationToken?: string })
                         </button>
 
                         {error && (
-                            <p role="alert">
+                            <p className="ui-error" role="alert">
                                 {error}
                             </p>
                         )}
                     </form>
 
                     {registrationSuccess && (
-                        <p role="status" className="registration-success">
+                        <p role="status" className="ui-status">
                             החשבון נוצר בהצלחה! אפשר להתחבר עכשיו.
                         </p>
                     )}
@@ -506,7 +489,7 @@ export default function Login({ invitationToken }: { invitationToken?: string })
                         עדיין אין לכם חשבון?{" "}
                         <button
                             type="button"
-                            className="auth-text-button"
+                            className="ui-button ui-button--text"
                             onClick={() => {
                                 setRegistrationSuccess(false);
                                 setError("");

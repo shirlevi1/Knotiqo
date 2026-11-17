@@ -95,52 +95,52 @@ export default function BudgetAssistant({ weddingId }: { weddingId: number }) {
     const budget = result?.budget_analysis;
 
     return (
-        <details className="budget-assistant" dir="rtl">
+        <details className="budget-assistant ui-panel" dir="rtl">
             <summary>עוזר התקציב החכם</summary>
             <form noValidate onSubmit={submit} aria-busy={loading}
                 onInput={() => {
                     if (state.status === "ready") setState({ status: "idle" });
                 }}>
-                <fieldset disabled={loading}>
+                <fieldset className="ui-fieldset" disabled={loading}>
                     <div className="budget-fields">
                         {fields.map(({ name, label }) => {
                             const fieldId = `${id}-${name}`;
                             const error = state.status === "error" ? state.fields[name] : undefined;
                             return (
-                                <div className="wedding-field" key={name}>
+                                <div className="ui-field" key={name}>
                                     <label htmlFor={fieldId}>{label}</label>
-                                    <input id={fieldId} name={name} dir="ltr" required
+                                    <input className="ui-input" id={fieldId} name={name} dir="ltr" required
                                         inputMode={name === "guests" ? "numeric" : "decimal"}
                                         aria-invalid={error ? true : undefined}
                                         aria-describedby={error ? `${fieldId}-error` : undefined} />
-                                    {error && <p id={`${fieldId}-error`} className="budget-error">{error}</p>}
+                                    {error && <p id={`${fieldId}-error`} className="ui-error">{error}</p>}
                                 </div>
                             );
                         })}
                     </div>
-                    <button className="wedding-button" type="submit" disabled={loading}>
+                    <button className="ui-button" type="submit" disabled={loading}>
                         ניתוח תקציב
                     </button>
                 </fieldset>
             </form>
 
-            {loading && <p role="status">מנתחים את התקציב ומכינים המלצה…</p>}
-            {state.status === "error" && <p className="budget-error" role="alert">{state.message}</p>}
+            {loading && <p className="ui-status ui-status--loading" role="status">מנתחים את התקציב ומכינים המלצה…</p>}
+            {state.status === "error" && <p className="ui-error" role="alert">{state.message}</p>}
             <div aria-live="polite">
                 {result && budget && (
                     <div className="budget-results">
-                        <section aria-labelledby={`${id}-breakdown`}>
+                        <section className="ui-card" aria-labelledby={`${id}-breakdown`}>
                             <h4 id={`${id}-breakdown`}>חישוב תקציב מאומת</h4>
                             <dl>
                                 <dt>עלות האולם</dt><dd><bdi>{formatIls(budget.venue_cost)}</bdi></dd>
                                 <dt>סך ההוצאות</dt><dd><bdi>{formatIls(budget.total_expenses)}</bdi></dd>
                                 <dt>יתרת התקציב</dt><dd><bdi>{formatIls(budget.remaining_budget)}</bdi></dd>
                             </dl>
-                            <p className={budget.over_budget ? "budget-error" : undefined}>
+                            <p className={budget.over_budget ? "ui-error" : "ui-status"}>
                                 {budget.over_budget ? "חריגה מהתקציב" : "ההוצאות במסגרת התקציב"}
                             </p>
                         </section>
-                        <section aria-labelledby={`${id}-recommendation`}>
+                        <section className="ui-card" aria-labelledby={`${id}-recommendation`}>
                             <h4 id={`${id}-recommendation`}>המלצת Gemini</h4>
                             <p className="budget-recommendation">{result.ai_recommendation}</p>
                         </section>

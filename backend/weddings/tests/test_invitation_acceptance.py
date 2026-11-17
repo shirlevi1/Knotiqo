@@ -67,7 +67,10 @@ class InvitationAcceptanceTests(TestCase):
             self.accept_url, self.payload, format="json", headers={"X-CSRFToken": csrf}
         )
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json(), {"id": self.wedding.pk, "name": self.wedding.name, "wedding_date": None})
+        self.assertEqual(response.json(), {
+            "id": self.wedding.pk, "name": self.wedding.name, "wedding_date": None,
+            "creator_display_name": "", "partner_display_name": "",
+        })
         self.assertEqual(Wedding.objects.count(), 1)
         self.assertEqual(set(self.wedding.members.all()), {self.owner, self.partner})
         self.invitation.refresh_from_db()
@@ -87,7 +90,10 @@ class InvitationAcceptanceTests(TestCase):
             self.assertEqual(details.status_code, 200)
             self.assertEqual(details.json(), {
                 **response.json(),
-                "memberships": [{"display_name": "owner"}, {"display_name": "partner"}],
+                "memberships": [
+                    {"display_name": "owner", "first_name": None},
+                    {"display_name": "partner", "first_name": None},
+                ],
             })
 
     def post_as(self, user, payload=None):

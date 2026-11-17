@@ -4,8 +4,8 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .serializers import WeddingDetailsSerializer, WeddingSerializer
-from .services import create_wedding, wedding_details_for_user, weddings_for_user
+from .serializers import CoupleNamesSerializer, WeddingDetailsSerializer, WeddingSerializer
+from .services import create_wedding, update_couple_names, wedding_details_for_user, weddings_for_user
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.shortcuts import get_object_or_404
 from django.views.decorators.cache import never_cache
@@ -39,6 +39,17 @@ def my_weddings(request):
 def wedding_details(request, wedding_id):
     wedding = wedding_details_for_user(user=request.user, wedding_id=wedding_id)
     return Response(WeddingDetailsSerializer(wedding).data)
+
+
+@never_cache
+@api_view(["PUT"])
+@authentication_classes([SessionAuthentication])
+@permission_classes([IsAuthenticated])
+def wedding_couple_names(request, wedding_id):
+    serializer = CoupleNamesSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    update_couple_names(user=request.user, wedding_id=wedding_id, **serializer.validated_data)
+    return Response(serializer.data)
 
 @never_cache
 @api_view(["POST"])

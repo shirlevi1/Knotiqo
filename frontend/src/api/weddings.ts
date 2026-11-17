@@ -1,16 +1,22 @@
 import { getCsrfToken } from "./csrf";
 
-export type Wedding = {
+export type CoupleNames = {
+    creator_display_name: string;
+    partner_display_name: string;
+};
+
+export type Wedding = Partial<CoupleNames> & {
     id: number;
     name: string;
     wedding_date: string | null;
 };
 
-type WeddingMembership = { display_name: string | null };
+type WeddingMembership = { display_name: string | null; first_name?: string | null };
 
-export type WeddingDetails = Wedding & { memberships: WeddingMembership[] };
+type WeddingDetailsPayload = Wedding & { memberships: WeddingMembership[] };
+export type WeddingDetails = WeddingDetailsPayload & CoupleNames;
 
-export type CreateWeddingInput = Pick<Wedding, "name" | "wedding_date">;
+export type CreateWeddingInput = Pick<Wedding, "name" | "wedding_date"> & CoupleNames;
 export type WeddingFieldErrors = Partial<Record<keyof CreateWeddingInput, string>>;
 
 export class WeddingApiError extends Error {
@@ -22,12 +28,38 @@ export class WeddingApiError extends Error {
     }
 }
 
+function isCoupleNames(value: unknown): value is CoupleNames {
+    return typeof value === "object" && value !== null
+        && "creator_display_name" in value && typeof value.creator_display_name === "string"
+        && "partner_display_name" in value && typeof value.partner_display_name === "string";
+}
+
 export function isWedding(value: unknown): value is Wedding {
     return typeof value === "object" && value !== null
+        && (!("creator_display_name" in value) || typeof value.creator_display_name === "string")
+        && (!("partner_display_name" in value) || typeof value.partner_display_name === "string")
         && "id" in value && typeof value.id === "number"
         && "name" in value && typeof value.name === "string"
         && "wedding_date" in value && (value.wedding_date === null
             || (typeof value.wedding_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value.wedding_date)));
+}
+
+const coupleNameError = "יש להזין שם באורך של עד 80 תווים.";
+const coupleNameFields = ["creator_display_name", "partner_display_name"] as const;
+
+export function readCoupleNames(form: FormData): CoupleNames {
+    return {
+        creator_display_name: String(form.get("creator_display_name") ?? "").trim(),
+        partner_display_name: String(form.get("partner_display_name") ?? "").trim(),
+    };
+}
+
+export function validateCoupleNames(names: CoupleNames): WeddingFieldErrors {
+    const errors: WeddingFieldErrors = {};
+    for (const field of coupleNameFields) {
+        if (!names[field] || Array.from(names[field]).length > 80) errors[field] = coupleNameError;
+    }
+    return errors;
 }
 
 async function readResponse(response: Response): Promise<unknown> {
@@ -41,9 +73,13 @@ async function readResponse(response: Response): Promise<unknown> {
             if (typeof data === "object" && data !== null) {
                 if ("name" in data) fields.name = "יש להזין שם חתונה באורך של עד 150 תווים.";
                 if ("wedding_date" in data) fields.wedding_date = "יש להזין תאריך תקין או להשאיר את השדה ריק.";
+                for (const field of coupleNameFields) {
+                    if (field in data) fields[field] = coupleNameError;
+                }
             }
             throw new WeddingApiError("בדקו את הפרטים שהזנתם ונסו שוב.", fields);
         }
+        if (response.status === 404) throw new WeddingApiError("החתונה אינה זמינה לחשבון הזה.");
         throw new WeddingApiError("לא ניתן להשלים את הבקשה כרגע. נסו שוב מאוחר יותר.");
     }
     try {
@@ -56,10 +92,11 @@ async function readResponse(response: Response): Promise<unknown> {
 function isWeddingMembership(value: unknown): value is WeddingMembership {
     return typeof value === "object" && value !== null
         && "display_name" in value
-        && (value.display_name === null || typeof value.display_name === "string");
+        && (value.display_name === null || typeof value.display_name === "string")
+        && (!("first_name" in value) || value.first_name === null || typeof value.first_name === "string");
 }
 
-function isWeddingDetails(value: unknown): value is WeddingDetails {
+function isWeddingDetails(value: unknown): value is WeddingDetailsPayload {
     return isWedding(value) && "memberships" in value
         && Array.isArray(value.memberships) && value.memberships.every(isWeddingMembership);
 }
@@ -70,26 +107,41 @@ export async function getWeddings(signal: AbortSignal): Promise<WeddingDetails[]
     if (!Array.isArray(data) || !data.every(isWeddingDetails)) {
         throw new WeddingApiError("התקבלה תשובה לא צפויה מהשרת. נסו לטעון שוב.");
     }
-    return data;
+    return data.map((wedding) => ({
+        ...wedding,
+        creator_display_name: wedding.creator_display_name ?? "",
+        partner_display_name: wedding.partner_display_name ?? "",
+    }));
 }
 
-export async function createWedding(input: CreateWeddingInput): Promise<Wedding> {
-    const csrfResponse = await fetch("/api/auth/csrf/", { credentials: "same-origin" });
+async function writeWedding(url: string, method: "POST" | "PUT", input: CoupleNames, signal?: AbortSignal) {
+    const options = { credentials: "same-origin", signal } as const;
+    const csrfResponse = await fetch("/api/auth/csrf/", options);
     if (!csrfResponse.ok) {
         throw new WeddingApiError("לא ניתן לאתחל את בדיקת האבטחה. נסו שוב.");
     }
     const token = getCsrfToken();
     if (!token) throw new WeddingApiError("לא נמצא אישור אבטחה. רעננו את הדף ונסו שוב.");
 
-    const response = await fetch("/api/weddings/", {
-        method: "POST",
-        credentials: "same-origin",
+    const response = await fetch(url, {
+        ...options,
+        method,
         headers: { "Content-Type": "application/json", "X-CSRFToken": token },
         body: JSON.stringify(input),
     });
-    const data = await readResponse(response);
-    if (response.status !== 201 || !isWedding(data)) {
+    return { status: response.status, data: await readResponse(response) };
+}
+
+export async function createWedding(input: CreateWeddingInput): Promise<Wedding> {
+    const { status, data } = await writeWedding("/api/weddings/", "POST", input);
+    if (status !== 201 || !isWedding(data)) {
         throw new WeddingApiError("לא ניתן לאשר את תוצאת היצירה. רעננו את הדף לפני ניסיון נוסף.");
     }
     return data;
+}
+
+export async function updateCoupleNames(weddingId: number, input: CoupleNames, signal: AbortSignal): Promise<CoupleNames> {
+    const { data } = await writeWedding(`/api/weddings/${weddingId}/couple-names/`, "PUT", input, signal);
+    if (!isCoupleNames(data)) throw new WeddingApiError("לא ניתן לאשר ששמות הזוג נשמרו. רעננו את הדף.");
+    return { creator_display_name: data.creator_display_name, partner_display_name: data.partner_display_name };
 }
