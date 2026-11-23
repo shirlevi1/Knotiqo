@@ -33,6 +33,14 @@ export type Venue = VenueInput & {
     id: number; description: string; images: VenueImage[]; created_at: string; updated_at: string;
 };
 export type VenueQuote = QuoteInput & { id: number; created_at: string; updated_at: string };
+export type ComparedQuote = QuoteInput & {
+    quote_id: number; venue_id: number; venue_name: string; billable_guests: number;
+    meals_cost: string; total_cost: string; difference_from_cheapest: string;
+};
+export type VenueComparison = {
+    expected_guests: number; comparisons: ComparedQuote[];
+    cheapest_quote_id: number; cheapest_quote_label: "Lowest known calculated cost";
+};
 
 export class VenueApiError extends Error {
     readonly fields: string[];
@@ -83,6 +91,23 @@ function isQuote(value: unknown): value is VenueQuote {
         && typeof value.additional_costs === "string" && /^\d+\.\d{2}$/.test(value.additional_costs)
         && Number.isInteger(value.minimum_guests) && Number(value.minimum_guests) > 0
         && typeof value.notes === "string";
+}
+
+function isComparedQuote(value: unknown): value is ComparedQuote {
+    return record(value)
+        && ["quote_id", "venue_id", "minimum_guests", "billable_guests"].every((key) =>
+            Number.isSafeInteger(value[key]) && Number(value[key]) > 0)
+        && (value.event_date === null || (typeof value.event_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value.event_date)))
+        && ["price_per_guest", "meals_cost", "additional_costs", "total_cost", "difference_from_cheapest"].every((key) =>
+            typeof value[key] === "string" && /^\d+\.\d{2}$/.test(value[key]))
+        && typeof value.venue_name === "string" && typeof value.notes === "string";
+}
+
+function isComparison(value: unknown): value is VenueComparison {
+    return record(value) && Number.isSafeInteger(value.expected_guests) && Number(value.expected_guests) > 0
+        && value.cheapest_quote_label === "Lowest known calculated cost"
+        && Array.isArray(value.comparisons) && value.comparisons.length >= 2 && value.comparisons.length <= 4
+        && value.comparisons.every(isComparedQuote) && value.cheapest_quote_id === value.comparisons[0].quote_id;
 }
 
 const mediaErrors: Record<string, string> = {
@@ -147,6 +172,15 @@ export function venuesApi(weddingId: number) {
     const quoteBase = (venueId: number) => `${base}${venueId}/quotes/`;
     return {
         async list(signal: AbortSignal) { return list(await request(base, signal), isVenue); },
+        async compare(expected_guests: number, quote_ids: number[], signal: AbortSignal) {
+            const result = checked(await request(`${base}compare/`, signal, "POST", { expected_guests, quote_ids }), isComparison);
+            const returned = new Set(result.comparisons.map(({ quote_id }) => quote_id));
+            if (result.expected_guests !== expected_guests || returned.size !== quote_ids.length
+                || result.comparisons.length !== quote_ids.length || quote_ids.some((id) => !returned.has(id))) {
+                throw new VenueApiError("תוצאות ההשוואה אינן תואמות לבחירה. נסו שוב.");
+            }
+            return result;
+        },
         async detail(venueId: number, signal: AbortSignal) {
             return checked(await request(`${base}${venueId}/`, signal), isVenue);
         },

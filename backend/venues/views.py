@@ -14,10 +14,10 @@ from rest_framework.response import Response
 
 from .image_previews import PreviewError, consume_selection, create_preview, unavailable
 from .serializers import (
-    SaveVenueImagesSerializer, VenueImageSerializer, VenueMetadataPreviewSerializer,
+    SaveVenueImagesSerializer, VenueComparisonSerializer, VenueImageSerializer, VenueMetadataPreviewSerializer,
     VenueQuoteSerializer, VenueSerializer,
 )
-from .services import append_images, quotes_for_user, venues_for_user
+from .services import append_images, compare_quotes_for_user, quotes_for_user, venues_for_user
 
 
 @method_decorator(never_cache, name="dispatch")
@@ -52,6 +52,31 @@ class VenueList(VenueView, ListCreateAPIView):
 class VenueDetail(VenueView, RetrieveUpdateDestroyAPIView):
     lookup_url_kwarg = "venue_id"
     http_method_names = ["get", "patch", "delete", "head", "options"]
+
+
+class VenueComparisonJSONParser(JSONParser):
+    def parse(self, stream, media_type=None, parser_context=None):
+        limit = 4096
+        body = stream.read(limit + 1)
+        if len(body) > limit:
+            raise ParseError("Comparison requests must be 4 KiB or smaller.")
+        try:
+            return super().parse(BytesIO(body), media_type, parser_context)
+        except RecursionError as error:
+            raise ParseError("Invalid JSON request.") from error
+
+
+class VenueComparison(VenueView):
+    serializer_class = VenueComparisonSerializer
+    parser_classes = [VenueComparisonJSONParser]
+    http_method_names = ["post", "options"]
+
+    def post(self, request, wedding_id):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(compare_quotes_for_user(
+            user=request.user, wedding_id=wedding_id, **serializer.validated_data,
+        ))
 
 
 class VenueMediaJSONParser(JSONParser):

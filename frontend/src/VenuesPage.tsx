@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { formatVenueMoney, venuesApi, VenueApiError, venueStatuses, type Venue, type VenueQuote } from "./api/venues";
 import { QuoteForm, VenueForm } from "./components/VenueForms";
+import VenueComparison from "./components/VenueComparison";
 import VenueGallery, { VenuePhoto } from "./components/VenueGallery";
 import "./VenuesPage.css";
 
@@ -51,6 +52,7 @@ function WeddingVenues({ weddingId, weddingName }: { weddingId: number; weddingN
     const [success, setSuccess] = useState("");
     const [attempt, setAttempt] = useState(0);
     const [selectedId, setSelectedId] = useState<number | null>(null);
+    const [comparing, setComparing] = useState(false);
     const [editor, setEditor] = useState<Editor | null>(null);
     const [removal, setRemoval] = useState<Removal | null>(null);
     const [busy, setBusy] = useState(false);
@@ -69,10 +71,10 @@ function WeddingVenues({ weddingId, weddingName }: { weddingId: number; weddingN
     }, []);
 
     useEffect(() => {
-        if (!editor && !removal) {
+        if (!editor && !removal && !comparing) {
             (selectedId === null ? heading.current : detailHeading.current)?.focus();
         }
-    }, [selectedId, editor, removal]);
+    }, [selectedId, editor, removal, comparing]);
 
     useEffect(() => {
         const controller = new AbortController();
@@ -153,15 +155,18 @@ function WeddingVenues({ weddingId, weddingName }: { weddingId: number; weddingN
             </header>
             {success && <p className="ui-panel ui-state ui-status" role="status">{success}</p>}
             {error && !removal && <p className="ui-error" role="alert">{error}</p>}
-            <div className="venue-management-actions">
+            {!comparing && <div className="venue-management-actions">
                 <button className="ui-button" type="button" disabled={busy || loading} onClick={() => {
                     setEditor({ kind: "venue" }); setSuccess("");
                 }}>הוספת אולם</button>
                 <button className="ui-button ui-button--secondary" type="button" disabled={busy || loading}
                     onClick={() => { closeEditor(); setAttempt((value) => value + 1); }}>רענון הרשימה</button>
-            </div>
+                <button className="ui-button ui-button--secondary" type="button" disabled={busy || loading || !!editor}
+                    onClick={() => setComparing(true)}>השוואת אולמות</button>
+            </div>}
 
-            {loading ? <p className="ui-status ui-status--loading" role="status">טוענים אולמות והצעות מחיר…</p> : (
+            {comparing ? <VenueComparison weddingId={weddingId} entries={rows} onClose={() => setComparing(false)} />
+                : loading ? <p className="ui-status ui-status--loading" role="status">טוענים אולמות והצעות מחיר…</p> : (
                 <>
                     {editor?.kind === "venue" && <VenueForm key={`venue-${editor.venue?.id ?? "new"}`} initial={editor.venue}
                         onCancel={closeEditor} onSave={async (input) => {

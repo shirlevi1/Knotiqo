@@ -21,6 +21,25 @@ class ScopedResourceSerializer(EditableFieldsMixin, serializers.ModelSerializer)
     pass
 
 
+class JSONIntegerField(serializers.IntegerField):
+    def to_internal_value(self, data):
+        if type(data) is not int:
+            self.fail("invalid")
+        return data
+
+
+class VenueComparisonSerializer(EditableFieldsMixin, serializers.Serializer):
+    expected_guests = JSONIntegerField(min_value=1)
+    quote_ids = serializers.ListField(
+        child=JSONIntegerField(min_value=1, max_value=2**63 - 1), min_length=2, max_length=4,
+    )
+
+    def validate_quote_ids(self, quote_ids):
+        if len(set(quote_ids)) != len(quote_ids):
+            raise serializers.ValidationError("Select distinct quote IDs.")
+        return quote_ids
+
+
 class VenueMetadataPreviewSerializer(EditableFieldsMixin, serializers.Serializer):
     website = serializers.CharField(required=False, max_length=4096, trim_whitespace=False)
 

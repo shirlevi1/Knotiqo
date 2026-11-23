@@ -33,6 +33,140 @@ const preview = (count = 2) => ({
     },
 });
 
+function comparison(ids = [2, 1], guests = 280) {
+    return {
+        expected_guests: guests, cheapest_quote_id: ids[0], cheapest_quote_label: "Lowest known calculated cost",
+        comparisons: ids.map((id, index) => ({
+            quote_id: id, venue_id: 1, venue_name: "אולם לבדיקה", event_date: id === 1 ? "2027-05-02" : "2027-05-03",
+            minimum_guests: 200, price_per_guest: "350.10", additional_costs: "12.34", notes: "",
+            billable_guests: 300, meals_cost: "93.12", total_cost: index === 0 ? "12345678901234567.89" : "12345678901234569.06",
+            difference_from_cheapest: index === 0 ? "0.00" : "1.17",
+        })),
+    };
+}
+
+const comparisonUrl = "/api/weddings/7/venues/compare/";
+const quoteOptions = () => [...container.querySelectorAll('.comparison-option input[name="quote_ids"]')];
+
+async function comparisonGuests(value) {
+    const input = container.querySelector('[name="expected_guests"]');
+    const setter = Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, "value").set;
+    await act(() => {
+        setter.call(input, value);
+        input.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+    });
+}
+
+test("validates the inputs and compares up to four distinct quotes from the same venue", async (t) => {
+    quotes = Array.from({ length: 5 }, (_, i) => ({ ...quote(i + 1), event_date: `2027-05-0${i + 2}` }));
+    venues[0].images = [savedImage(1, true)];
+    mockApi(t, (url, method, options) => {
+        if (url !== comparisonUrl) return;
+        assert.equal(method, "POST");
+        assert.equal(options.credentials, "same-origin");
+        assert.equal(options.headers["X-CSRFToken"], "venues-test");
+        assert.deepEqual(JSON.parse(options.body), { expected_guests: 280, quote_ids: [1, 2, 3, 4] });
+        return Response.json(comparison([2, 1, 3, 4]));
+    });
+    await render();
+    await click("השוואת אולמות");
+    assert.equal(document.activeElement.id, "comparison-title");
+    for (const value of ["", "-2", "4.5", "9007199254740992"]) {
+        await comparisonGuests(value);
+        await click("השוו הצעות");
+        assert.match(container.querySelector('[role="alert"]').textContent, /שלם וחיובי/);
+    }
+    await comparisonGuests("280");
+    const choices = quoteOptions();
+    await act(() => choices[0].click());
+    await click("השוו הצעות");
+    assert.match(container.querySelector('[role="alert"]').textContent, /הצעות שונות/);
+    assert.equal(calls.some(({ url }) => url === comparisonUrl), false);
+    assert.match(choices[0].labels[0].textContent, /אולם לבדיקה.*מס׳ 1.*2\.5\.2027/);
+    assert.match(choices[1].labels[0].textContent, /אולם לבדיקה.*מס׳ 2.*3\.5\.2027/);
+    for (const choice of choices.slice(1, 4)) await act(() => choice.click());
+    assert.equal(choices[4].disabled, true);
+    await act(() => choices[3].click());
+    assert.equal(choices[4].disabled, false);
+    await act(() => choices[3].click());
+    await click("השוו הצעות");
+    const table = container.querySelector(".comparison-table");
+    const cards = container.querySelector(".comparison-cards");
+    assert.match(table.querySelector("thead .comparison-lowest-column").textContent, /מס׳ 2.*העלות המחושבת הנמוכה ביותר/);
+    assert.equal(table.querySelector("img").src, candidate(1).image_url);
+    for (const layout of [table, cards]) {
+        assert.match(layout.textContent, /12,345,678,901,234,567\.89/);
+        assert.match(layout.textContent, /93\.12/);
+        assert.match(layout.textContent, /1\.17/);
+        assert.match(layout.textContent, /אורחים לחיוב/);
+    }
+    assert.equal(cards.children.length, 4);
+    await comparisonGuests("281");
+    assert.equal(container.querySelector(".comparison-results"), null);
+    await click("חזרה לניהול אולמות");
+    assert.ok(container.querySelector(".venue-management-cards"));
+});
+
+test("shows an empty state when there are fewer than two quotes", async (t) => {
+    mockApi(t);
+    await render();
+    await click("השוואת אולמות");
+    assert.match(container.textContent, /יש לשמור לפחות שתי הצעות מחיר/);
+    assert.equal(container.querySelector(".comparison-form"), null);
+});
+
+for (const [status, expected] of [[403, /לא ניתן לאמת/], [404, /אינם זמינים/], [503, /לא הצלחנו להשלים/]]) {
+    test(`localizes comparison errors for HTTP ${status} without losing the selection`, async (t) => {
+        quotes.push(quote(2));
+        mockApi(t, (url) => url === comparisonUrl ? Response.json({ detail: "internal details" }, { status }) : undefined);
+        await render();
+        await click("השוואת אולמות");
+        await comparisonGuests("280");
+        for (const choice of quoteOptions()) await act(() => choice.click());
+        await click("השוו הצעות");
+        assert.match(container.querySelector('[role="alert"]').textContent, expected);
+        assert.doesNotMatch(container.textContent, /internal details/);
+        assert.equal(quoteOptions().filter((input) => input.checked).length, 2);
+    });
+}
+
+test("aborts comparisons after guest changes, selection changes, and wedding switches", async (t) => {
+    quotes.push(quote(2), quote(3));
+    const pending = [];
+    mockApi(t, (url, _method, { signal }) => {
+        if (url === comparisonUrl) {
+            const request = { ...Promise.withResolvers(), signal };
+            pending.push(request);
+            return request.promise;
+        }
+        if (url === "/api/weddings/8/venues/") return Response.json([venue(8, "אולם בחתונה השנייה")]);
+        if (url === "/api/weddings/8/venues/8/quotes/") return Response.json([quote(81), quote(82)]);
+    });
+    await render();
+    await click("השוואת אולמות");
+    await comparisonGuests("280");
+    for (const choice of quoteOptions().slice(0, 2)) await act(() => choice.click());
+    await click("השוו הצעות");
+    assert.match(container.textContent, /מחשבים את עלויות ההצעות/);
+    await comparisonGuests("285");
+    assert.equal(pending[0].signal.aborted, true);
+    await act(() => pending[0].resolve(Response.json(comparison())));
+    assert.equal(container.querySelector(".comparison-results"), null);
+    await click("השוו הצעות");
+    await act(() => quoteOptions()[2].click());
+    assert.equal(pending[1].signal.aborted, true);
+    await act(() => pending[1].resolve(Response.json(comparison([2, 1], 285))));
+    assert.equal(container.querySelector(".comparison-results"), null);
+    await click("השוו הצעות");
+    await render(8);
+    assert.equal(pending[2].signal.aborted, true);
+    await act(() => pending[2].resolve(Response.json(comparison([2, 1, 3], 285))));
+    await click("השוואת אולמות");
+    assert.deepEqual(quoteOptions().map((input) => input.value), ["81", "82"]);
+    assert.equal(quoteOptions().some((input) => input.checked), false);
+    assert.equal(container.querySelector(".comparison-results"), null);
+});
+
 async function openImport() {
     await click("פרטים והצעות מחיר");
     await click("ייבוא פרטים ותמונות");
