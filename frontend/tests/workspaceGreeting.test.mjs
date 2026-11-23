@@ -34,7 +34,10 @@ after(async () => {
 });
 
 beforeEach(() => { root = createRoot(container); });
-afterEach(async () => { await act(() => root.unmount()); });
+afterEach(async () => {
+    await act(() => root.unmount());
+    window.history.replaceState(null, "", "/");
+});
 
 function wedding(id, memberships, names = {}) {
     return { id, name: `Wedding ${id}`, wedding_date: null, memberships, ...names };
@@ -128,4 +131,26 @@ test("completes the stored names with session CSRF and refreshes the hero", asyn
     assert.equal(hero.querySelector("h2").textContent, "דנה ויובל");
     assert.equal(container.querySelector(".couple-name-form"), null);
     assert.ok(container.querySelector(".partner-invitation"));
+});
+
+test("restores the dedicated venue route using only the authorized wedding ID", async (t) => {
+    const urls = [];
+    t.mock.method(globalThis, "fetch", async (url) => {
+        urls.push(url);
+        if (url === "/api/weddings/?include=memberships") {
+            return Response.json([wedding(2, [{ display_name: "Member" }])]);
+        }
+        assert.equal(url, "/api/weddings/2/venues/");
+        return Response.json([]);
+    });
+    window.history.replaceState(null, "", "/#/weddings/2/venues");
+    await render();
+    assert.equal(container.querySelector("h1").textContent, "המקום שבו הסיפור שלכם מתחיל.");
+    assert.ok(urls.includes("/api/weddings/2/venues/"));
+    await act(() => {
+        window.history.replaceState(null, "", "/#/weddings/999/venues");
+        window.dispatchEvent(new dom.window.Event("hashchange"));
+    });
+    assert.match(container.querySelector('[role="alert"]').textContent, /אינה זמינה/);
+    assert.equal(urls.some((url) => url.includes("/999/")), false);
 });

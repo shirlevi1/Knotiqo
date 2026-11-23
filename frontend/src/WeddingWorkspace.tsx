@@ -5,6 +5,7 @@ import BudgetAssistant from "./components/BudgetAssistant";
 import CoupleNamesEditor from "./components/CoupleNamesEditor";
 import PartnerInvitation from "./components/PartnerInvitation";
 import VenueSection from "./components/VenueSection";
+import VenuesPage from "./VenuesPage";
 import { getWeddings, WeddingApiError, type CoupleNames, type WeddingDetails } from "./api/weddings";
 import "./WeddingWorkspace.css";
 
@@ -39,6 +40,13 @@ function WorkspaceHero({ wedding }: { wedding?: WeddingDetails }) {
 export default function WeddingWorkspace({ preferredWeddingId }: { preferredWeddingId?: number }) {
     const [state, setState] = useState<State>({ status: "loading" });
     const [attempt, setAttempt] = useState(0);
+    const [hash, setHash] = useState(window.location.hash);
+
+    useEffect(() => {
+        const navigate = () => setHash(window.location.hash);
+        window.addEventListener("hashchange", navigate);
+        return () => window.removeEventListener("hashchange", navigate);
+    }, []);
 
     useEffect(() => {
         const refresh = () => setAttempt((value) => value + 1);
@@ -79,6 +87,8 @@ export default function WeddingWorkspace({ preferredWeddingId }: { preferredWedd
 
     const weddings = state.status === "ready" ? state.weddings : [];
     const activeWedding = weddings.find(({ id }) => id === preferredWeddingId) ?? weddings[0];
+    const venueRoute = /^#\/weddings\/(\d+)\/venues$/.exec(hash);
+    const venueWedding = venueRoute ? weddings.find(({ id }) => id === Number(venueRoute[1])) : undefined;
 
     function applyNames(weddingId: number, names: CoupleNames) {
         setState((current) => current.status === "ready" ? {
@@ -86,6 +96,15 @@ export default function WeddingWorkspace({ preferredWeddingId }: { preferredWedd
             weddings: current.weddings.map((wedding) => wedding.id === weddingId ? { ...wedding, ...names } : wedding),
         } : current);
         setAttempt((value) => value + 1);
+    }
+
+    if (venueRoute && state.status === "ready") {
+        return venueWedding
+            ? <VenuesPage weddingId={venueWedding.id} weddingName={venueWedding.name} />
+            : <div className="ui-panel ui-state" dir="rtl">
+                <p className="ui-error" role="alert">החתונה אינה זמינה לחשבון הזה.</p>
+                <a className="ui-button ui-button--secondary" href="#workspace">חזרה למרחב החתונה</a>
+            </div>;
     }
 
     return (
@@ -190,7 +209,7 @@ export default function WeddingWorkspace({ preferredWeddingId }: { preferredWedd
                                 </div>
                                 <BudgetAssistant weddingId={wedding.id} />
                             </div>
-                            <VenueSection />
+                            <VenueSection weddingId={wedding.id} />
                         </li>
                     ))}
                 </ul>

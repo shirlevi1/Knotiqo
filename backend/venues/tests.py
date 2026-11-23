@@ -1,13 +1,16 @@
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
-from django.test import TestCase
+from django.db import connection
+from django.db.migrations.executor import MigrationExecutor
+from django.test import TestCase, TransactionTestCase
 from rest_framework.test import APIClient
 
 from weddings.models import WeddingMembership
 from weddings.services import create_wedding
-from .models import Venue, VenueQuote
+from .models import Venue, VenueImage, VenueQuote
 
 
 class VenueAPITests(TestCase):
@@ -48,6 +51,8 @@ class VenueAPITests(TestCase):
         venue = Venue.objects.get(pk=response.data["id"])
         self.assertEqual(venue.wedding_id, self.wedding.pk)
         self.assertEqual(response.data["status"], "interested")
+        self.assertEqual(response.data["description"], "")
+        self.assertEqual(response.data["images"], [])
         url = f"{self.base}{venue.pk}/"
         self.assertEqual(self.client.get(url).status_code, 200)
         response = self.write("patch", url, {"capacity": 250, "status": "booked", "is_favorite": True})
@@ -157,7 +162,129 @@ class VenueAPITests(TestCase):
 
     def test_deleting_venue_cascades_to_its_quotes_only(self):
         VenueQuote.objects.create(venue=self.venue, price_per_guest="0", minimum_guests=1)
+        VenueImage.objects.create(venue=self.venue, image_url="https://example.com/own.jpg")
+        foreign_image = VenueImage.objects.create(venue=self.foreign, image_url="https://example.com/foreign.jpg")
         self.assertEqual(self.write("delete", self.detail).status_code, 204)
         self.assertFalse(VenueQuote.objects.filter(venue_id=self.venue.pk).exists())
         self.assertTrue(Venue.objects.filter(pk=self.foreign.pk).exists())
         self.assertTrue(VenueQuote.objects.filter(pk=self.foreign_quote.pk).exists())
+        self.assertFalse(VenueImage.objects.filter(venue_id=self.venue.pk).exists())
+        self.assertTrue(VenueImage.objects.filter(pk=foreign_image.pk).exists())
+
+    def test_description_is_optional_and_editable_without_changing_quotes(self):
+        response = self.write("patch", self.detail, {"description": "מרחב מואר לאירועים"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["description"], "מרחב מואר לאירועים")
+        response = self.write("patch", self.detail, {"description": ""})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["description"], "")
+        self.quote.refresh_from_db()
+        self.assertEqual(self.quote.price_per_guest, Decimal("350.10"))
+
+    def test_images_are_serialized_in_deterministic_order_for_both_members(self):
+        later = VenueImage.objects.create(venue=self.venue, image_url="https://example.com/later.jpg", sort_order=2)
+        earlier = VenueImage.objects.create(venue=self.venue, image_url="https://example.com/earlier.jpg", sort_order=1)
+        tie = VenueImage.objects.create(venue=self.venue, image_url="http://example.com/tie.jpg", sort_order=1)
+        primary = VenueImage.objects.create(
+            venue=self.venue, image_url="https://example.com/primary.jpg",
+            source_url="https://example.com/gallery", alt_text="אולם מואר",
+            is_primary=True, sort_order=10,
+        )
+        VenueImage.objects.create(venue=self.foreign, image_url="https://example.com/private.jpg")
+        for member in (self.owner, self.partner):
+            self.login(member)
+            response = self.client.get(self.detail)
+            self.assertEqual(response.status_code, 200)
+            images = response.json()["images"]
+            self.assertEqual([image["id"] for image in images], [primary.pk, earlier.pk, tie.pk, later.pk])
+            self.assertEqual(set(images[0]), {
+                "id", "image_url", "source_url", "alt_text", "is_primary", "sort_order", "created_at",
+            })
+            self.assertEqual(images[0]["source_url"], primary.source_url)
+            self.assertEqual(images[0]["alt_text"], primary.alt_text)
+            self.assertTrue(images[0]["is_primary"])
+            self.assertEqual(self.client.get(self.base).json()[0]["images"], images)
+        self.login(self.other)
+        self.assertEqual(self.client.get(self.detail).status_code, 404)
+
+    def test_images_cannot_be_written_through_venue_api(self):
+        for method, url, payload in (
+            ("post", self.base, {"name": "New", "images": [{"image_url": "https://example.com/a.jpg"}]}),
+            ("patch", self.detail, {"images": []}),
+        ):
+            response = self.write(method, url, payload)
+            self.assertEqual(response.status_code, 400)
+        self.assertFalse(VenueImage.objects.exists())
+
+    def test_database_prevents_duplicates_and_multiple_primary_images_per_venue(self):
+        url = "https://example.com/shared.jpg"
+        VenueImage.objects.create(venue=self.venue, image_url=url, is_primary=True)
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            VenueImage.objects.create(venue=self.venue, image_url=url)
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            VenueImage.objects.create(venue=self.venue, image_url="https://example.com/second.jpg", is_primary=True)
+        # Both constraints are local to a venue.
+        VenueImage.objects.create(venue=self.foreign, image_url=url, is_primary=True)
+        VenueImage.objects.create(venue=self.venue, image_url="https://example.com/secondary.jpg")
+
+    def test_image_url_validation_and_database_scheme_constraints(self):
+        for field in ("image_url", "source_url"):
+            for url in ("ftp://example.com/a.jpg", "file:///tmp/image", "data:image/png;base64,AA", "javascript:alert(1)"):
+                with self.subTest(field=field, url=url):
+                    image = VenueImage(venue=self.venue, image_url="https://example.com/a.jpg")
+                    setattr(image, field, url)
+                    with self.assertRaises(ValidationError):
+                        image.full_clean()
+                    with self.assertRaises(IntegrityError), transaction.atomic():
+                        image.save()
+        for scheme in ("http", "https"):
+            image = VenueImage(venue=self.venue, image_url=f"{scheme}://example.com/a.jpg")
+            image.full_clean()
+            image.save()
+        with self.assertRaises(ValidationError):
+            VenueImage(venue=self.venue, image_url="https://").full_clean()
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            VenueImage.objects.create(venue=self.venue, image_url="https://example.com/negative.jpg", sort_order=-1)
+
+    def test_venue_list_prefetches_images(self):
+        second = Venue.objects.create(wedding=self.wedding, name="Second")
+        for venue in (self.venue, second):
+            VenueImage.objects.create(venue=venue, image_url="https://example.com/a.jpg")
+        self.client.force_authenticate(user=self.owner)
+        # Two parent permission lookups, the venue list, and one image query.
+        with self.assertNumQueries(4):
+            response = self.client.get(self.base)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([len(venue["images"]) for venue in response.json()], [1, 1])
+
+
+class VenueMediaMigrationTests(TransactionTestCase):
+    def test_migration_preserves_existing_venues_and_quotes(self):
+        before = [("venues", "0002_venue_quote_constraints")]
+        after = [("venues", "0003_venue_media_foundation")]
+        executor = MigrationExecutor(connection)
+        try:
+            executor.migrate(before)
+            old_apps = executor.loader.project_state(before).apps
+            wedding = old_apps.get_model("weddings", "Wedding").objects.create(name="Existing Wedding")
+            venue = old_apps.get_model("venues", "Venue").objects.create(
+                wedding_id=wedding.pk, name="Existing Venue", notes="Preserve notes",
+            )
+            quote = old_apps.get_model("venues", "VenueQuote").objects.create(
+                venue_id=venue.pk, price_per_guest=Decimal("351.23"), minimum_guests=200,
+            )
+            executor = MigrationExecutor(connection)
+            executor.migrate(after)
+            new_apps = executor.loader.project_state(after).apps
+            migrated = new_apps.get_model("venues", "Venue").objects.get(pk=venue.pk)
+            self.assertEqual(migrated.description, "")
+            self.assertEqual(migrated.name, "Existing Venue")
+            self.assertEqual(migrated.notes, "Preserve notes")
+            self.assertEqual(migrated.wedding_id, wedding.pk)
+            migrated_quote = new_apps.get_model("venues", "VenueQuote").objects.get(pk=quote.pk)
+            self.assertEqual(migrated_quote.price_per_guest, Decimal("351.23"))
+            self.assertEqual(migrated_quote.venue_id, venue.pk)
+            self.assertFalse(new_apps.get_model("venues", "VenueImage").objects.exists())
+        finally:
+            executor = MigrationExecutor(connection)
+            executor.migrate(executor.loader.graph.leaf_nodes())

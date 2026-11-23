@@ -1,0 +1,14 @@
+<!doctype html><html lang="he"><head>
+<title>Fallback title</title>
+<meta property="og:title" content="אולם אמיתי">
+<meta property="og:description" content="אולם &amp; גן">
+<meta property="og:image" content="/photos/hall.jpg#preview">
+<meta property="og:image:alt" content="האולם באור יום">
+<meta property="og:image" content="https://venue.example.com/photos/hall.jpg">
+</head><body>
+<img src="../garden.jpg" alt="גן האירועים">
+<img src="javascript:alert(1)" alt="unsafe">
+<img src="data:image/png;base64,AA">
+<a href="/gallery/reception.webp">Gallery</a>
+<script>throw new Error("Must never run");</script>
+</body></html>

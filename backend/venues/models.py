@@ -1,6 +1,7 @@
 
+from django.conf import settings
 from django.db import models
-from django.core.validators import MinValueValidator
+from django.core.validators import MinValueValidator, URLValidator
 from weddings.models import Wedding
 
 
@@ -20,6 +21,7 @@ class Venue(models.Model):
     )
 
     name = models.CharField(max_length=150)
+    description = models.TextField(blank=True, default="")
 
     location = models.CharField(
         max_length=150,
@@ -117,6 +119,57 @@ class VenueQuote(models.Model):
             models.CheckConstraint(condition=models.Q(additional_costs__gte=0), name="quote_nonnegative_costs"),
             models.CheckConstraint(condition=models.Q(minimum_guests__gte=1), name="quote_positive_minimum_guests"),
         ]
-from django.db import models
+class VenueImage(models.Model):
+    venue = models.ForeignKey(Venue, on_delete=models.CASCADE, related_name="images")
+    image_url = models.URLField(
+        max_length=500, validators=[URLValidator(schemes=["http", "https"])],
+    )
+    source_url = models.URLField(
+        max_length=500, blank=True, default="",
+        validators=[URLValidator(schemes=["http", "https"])],
+    )
+    alt_text = models.CharField(max_length=255, blank=True, default="")
+    is_primary = models.BooleanField(default=False)
+    sort_order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
 
-# Create your models here.
+    class Meta:
+        ordering = ["-is_primary", "sort_order", "id"]
+        constraints = [
+            models.UniqueConstraint(fields=["venue", "image_url"], name="unique_venue_image_url"),
+            models.UniqueConstraint(
+                fields=["venue"], condition=models.Q(is_primary=True),
+                name="unique_primary_venue_image",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(image_url__iregex=r"^https?://"),
+                name="venue_image_http_url",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(source_url="") | models.Q(source_url__iregex=r"^https?://"),
+                name="venue_image_http_source",
+            ),
+        ]
+
+
+class VenueImagePreview(models.Model):
+    token_hash = models.CharField(max_length=64, unique=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    wedding = models.ForeignKey(Wedding, on_delete=models.CASCADE)
+    venue = models.ForeignKey(Venue, on_delete=models.CASCADE)
+    website = models.CharField(max_length=4096)
+    saved_website = models.CharField(max_length=500, blank=True)
+    candidates = models.JSONField(default=dict)
+    used_image_urls = models.JSONField(default=list)
+    expires_at = models.DateTimeField(db_index=True)
+
+
+class VenuePreviewRateWindow(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    window_start = models.DateTimeField(db_index=True)
+    request_count = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["user", "window_start"], name="venue_preview_user_window"),
+        ]
