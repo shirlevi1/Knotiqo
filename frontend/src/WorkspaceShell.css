@@ -1,0 +1,100 @@
+.welcome-page:has(> .workspace-shell) {
+    width: min(95%, 1780px);
+    max-width: none;
+}
+
+.workspace-shell {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    gap: clamp(12px, 2vw, 32px);
+    width: 100%;
+    text-align: start;
+}
+
+.workspace-content { min-width: 0; container-type: inline-size; }
+.workspace-content > :is(.wedding-workspace, .guests-page) { max-width: none; }
+.atelier-sidebar {
+    position: sticky;
+    inset-block-start: 16px;
+    box-sizing: border-box;
+    width: 224px;
+    background: #fbfcfd;
+    border: 1px solid #dce4eb;
+    border-radius: 16px;
+    padding: 12px;
+}
+
+.atelier-sidebar[data-collapsed="true"] { width: 64px; padding-inline: 8px; }
+.atelier-sidebar[data-collapsed="true"]:has(.atelier-wedding-picker) { width: 104px; }
+.atelier-sidebar[data-collapsed="true"] nav a span {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+.atelier-sidebar[data-collapsed="true"] nav a { justify-content: center; }
+.atelier-collapse { display: block; margin-inline-start: auto; }
+:is(.atelier-sidebar, .atelier-drawer) nav ul { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 4px; }
+:is(.atelier-sidebar, .atelier-drawer) nav li:not(.atelier-account-link) + .atelier-account-link {
+    border-block-start: 1px solid #dce4eb;
+    margin-block-start: 4px;
+    padding-block-start: 8px;
+}
+:is(.atelier-sidebar, .atelier-drawer) nav a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-block-size: 44px;
+    box-sizing: border-box;
+    padding: 8px 12px;
+    border-radius: 8px;
+    color: var(--color-text);
+    font-size: 0.9375rem;
+    text-decoration: none;
+}
+:is(.atelier-sidebar, .atelier-drawer) nav a svg { flex: 0 0 18px; height: 18px; }
+:is(.atelier-sidebar, .atelier-drawer) nav a:hover { background: #edf2f6; }
+:is(.atelier-sidebar, .atelier-drawer) nav a[aria-current="page"] { background: #e5edf4; color: #283f55; font-weight: 700; }
+.workspace-shell :is(a, button, select):focus-visible { outline: 2px solid #58758e; outline-offset: 2px; }
+.atelier-wedding-picker select { width: 100%; min-width: 0; }
+.atelier-mobile-menu { display: none; }
+.atelier-drawer {
+    box-sizing: border-box;
+    position: fixed;
+    inset: 0 0 0 auto;
+    margin: 0;
+    padding: 20px;
+    width: min(88vw, 320px);
+    height: 100dvh;
+    max-height: none;
+    border: 0;
+    border-inline-end: 1px solid #dce4eb;
+    background: #fbfcfd;
+    color: #273d50;
+}
+.atelier-drawer::backdrop { background: #25384d73; }
+.atelier-drawer header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.atelier-drawer h2 { margin: 0; }
+
+.atelier-settings { display: grid; gap: 18px; }
+.atelier-settings :is(h1, h2, p) { margin-block: 0; }
+.atelier-settings h1 { font-size: clamp(2rem, 4vw, 3rem); }
+.atelier-settings-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; align-items: start; }
+.atelier-settings-form { display: grid; align-content: start; justify-items: start; gap: 16px; }
+.atelier-settings-form label { width: min(100%, 38ch); }
+.atelier-settings-form fieldset { display: grid; gap: 16px; margin: 0; padding: 0; border: 0; min-inline-size: 0; width: 100%; }
+
+@container (max-width: 1000px) {
+    .workspace-tools { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+@container (max-width: 560px) {
+    .workspace-tools, .atelier-settings-grid { grid-template-columns: minmax(0,1fr); }
+}
+@media (max-width: 960px) {
+    .workspace-shell { grid-template-columns: minmax(0, 1fr); }
+    .atelier-sidebar { display: none; }
+    .atelier-mobile-menu { display: inline-flex; justify-self: start; align-items: center; gap: 8px; }
+}
