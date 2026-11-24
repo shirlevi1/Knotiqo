@@ -1,10 +1,10 @@
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import CreateWedding from "./CreateWedding";
 import BudgetAssistant from "./components/BudgetAssistant";
 import CoupleNamesEditor from "./components/CoupleNamesEditor";
 import PartnerInvitation from "./components/PartnerInvitation";
-import VenueSection from "./components/VenueSection";
+import WeddingCoverEditor from "./components/WeddingCoverEditor";
 import VenuesPage from "./VenuesPage";
 import { getWeddings, WeddingApiError, type CoupleNames, type WeddingDetails } from "./api/weddings";
 import "./WeddingWorkspace.css";
@@ -14,7 +14,30 @@ type State =
     | { status: "error"; message: string }
     | { status: "ready"; weddings: WeddingDetails[] };
 
-function WorkspaceHero({ wedding }: { wedding?: WeddingDetails }) {
+const weddingDate = new Intl.DateTimeFormat("he-IL", { dateStyle: "long", timeZone: "UTC" });
+const defaultHeroImageUrl = `${import.meta.env.BASE_URL}images/default-wedding-hero.jpg`;
+
+function WeddingDate({ date }: { date: string | null }) {
+    return date ? <time dateTime={date}>{weddingDate.format(new Date(`${date}T00:00:00Z`))}</time> : "התאריך טרם נקבע";
+}
+
+function AtelierIllustration({ kind }: { kind: "planning" | "comparison" | "budget" }) {
+    return (
+        <svg className="atelier-illustration" viewBox="0 0 40 40" fill="none" stroke="currentColor"
+            strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            {kind === "planning" && <path d="M6 35h28M9 35V17a11 11 0 0 1 22 0v18M14 35V17a6 6 0 0 1 12 0v18M9 23h5m12 0h5" />}
+            {kind === "comparison" && <path d="M20 6v27m-7 1h14M8 11h24M9 11 4 24h10L9 11Zm22 0-5 13h10l-5-13ZM4 24a5 5 0 0 0 10 0m12 0a5 5 0 0 0 10 0" />}
+            {kind === "budget" && <path d="M10 5h20a3 3 0 0 1 3 3v24a3 3 0 0 1-3 3H10a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3Zm2 6h16v6H12zm1 12h2m4 0h2m4 0h2m-14 6h2m4 0h2m4 0h2" />}
+        </svg>
+    );
+}
+
+function WorkspaceHero({ wedding, onSaveCover }: {
+    wedding: WeddingDetails; onSaveCover: (url: string | null) => void;
+}) {
+    const [failedUrl, setFailedUrl] = useState<string | null>(null);
+    const coverImageUrl = wedding.cover_image_url;
+    const heroImageUrl = coverImageUrl && coverImageUrl !== failedUrl ? coverImageUrl : defaultHeroImageUrl;
     const creator = wedding?.creator_display_name.trim();
     const partner = wedding?.partner_display_name.trim();
     const hebrew = /\p{Script=Hebrew}/u;
@@ -24,16 +47,130 @@ function WorkspaceHero({ wedding }: { wedding?: WeddingDetails }) {
     const joiner = bothHebrew ? " ו" : bothLatin ? " and " : " & ";
 
     return (
-        <section className="workspace-hero ui-card" dir="rtl" aria-labelledby="workspace-welcome">
-            <p className="eyebrow"><bdi lang="en">KNOTIQO</bdi> · המרחב שלנו</p>
-            <h1 id="workspace-welcome">הסיפור שלכם מתחיל כאן.</h1>
-            {(creator || partner) && (
-                <h2 className="workspace-names" dir={bothLatin ? "ltr" : "rtl"}>
-                    <bdi>{creator || partner}</bdi>{creator && partner && <>{joiner}<bdi>{partner}</bdi></>}
-                </h2>
-            )}
-            <p className="workspace-subtitle">כל הפרטים הקטנים בדרך ליום הגדול שלכם.</p>
+        <section className="workspace-hero" aria-labelledby="workspace-welcome">
+            <div className="workspace-hero-copy">
+                <p className="workspace-edition" lang="en">Wedding Atelier</p>
+                <h1 id="workspace-welcome" className="workspace-names" dir={bothLatin ? "ltr" : "rtl"}>
+                    <bdi>{creator || partner || wedding.name}</bdi>{creator && partner && <>{joiner}<bdi>{partner}</bdi></>}
+                </h1>
+                <p className="workspace-date">
+                    <WeddingDate date={wedding.wedding_date} />
+                </p>
+                <p className="workspace-hero-line">הסיפור שלכם מתחיל כאן</p>
+                <p className="workspace-hero-caption">כל מה שצריך כדי לתכנן את החתונה שלכם, במקום אחד.</p>
+                <a className="ui-button" href="#workspace-planning">המשך לתכנון החתונה <span aria-hidden="true">←</span></a>
+            </div>
+            <div className="workspace-hero-art">
+                {heroImageUrl !== failedUrl && <img className="workspace-hero-image" key={heroImageUrl}
+                    src={heroImageUrl} alt="" fetchPriority="high" onError={() => setFailedUrl(heroImageUrl)} />}
+                <WeddingCoverEditor weddingId={wedding.id} hasCover={!!coverImageUrl} onSaved={onSaveCover} />
+            </div>
         </section>
+    );
+}
+
+function focusBudget(panel: HTMLDivElement | null) {
+    const details = panel?.querySelector("details");
+    if (!details) return;
+    details.open = true;
+    details.querySelector("summary")?.focus();
+    details.scrollIntoView?.({ block: "nearest" });
+}
+
+function WeddingHomepage({ wedding, weddings, onSelect, onRefresh, onSaveNames, onSaveCover }: {
+    wedding: WeddingDetails; weddings: WeddingDetails[]; onSelect: (id: number) => void;
+    onRefresh: () => void; onSaveNames: (names: CoupleNames) => void; onSaveCover: (url: string | null) => void;
+}) {
+    const budget = useRef<HTMLDivElement>(null);
+    const [budgetWedding, setBudgetWedding] = useState<number | null>(null);
+    const budgetVisible = budgetWedding === wedding.id;
+    const hasNames = wedding.creator_display_name.trim() || wedding.partner_display_name.trim();
+    const base = `#/weddings/${wedding.id}/venues`;
+
+    useEffect(() => {
+        if (!budgetVisible) return;
+        focusBudget(budget.current);
+    }, [budgetVisible]);
+
+    function openBudget() {
+        if (budgetVisible) focusBudget(budget.current);
+        else setBudgetWedding(wedding.id);
+    }
+
+    return (
+        <div className="wedding-workspace" dir="rtl">
+            <WorkspaceHero key={wedding.id} wedding={wedding} onSaveCover={onSaveCover} />
+            <section id="workspace-planning" className="workspace-planning" aria-labelledby="workspace-planning-title">
+                <header className="workspace-section-heading">
+                    <h2 id="workspace-planning-title">מסלול התכנון שלכם</h2>
+                    <a className="workspace-inline-link" href="#workspace-settings">פרטי החתונה והזוג <span aria-hidden="true">↓</span></a>
+                </header>
+                <ul className="workspace-tools">
+                    <li>
+                        <AtelierIllustration kind="planning" />
+                        <h3>תכנון החתונה</h3>
+                        <p>רכזו את המקומות שאהבתם, התמונות והצעות המחיר.</p>
+                        <a className="workspace-tool-link" href={base}>ניהול אולמות <span aria-hidden="true">←</span></a>
+                    </li>
+                    <li>
+                        <AtelierIllustration kind="comparison" />
+                        <h3>השוואת אולמות</h3>
+                        <p>השוו עלויות לפי מספר האורחים וההצעות ששמרתם.</p>
+                        <a className="workspace-tool-link" href={`${base}/compare`}>השוואת הצעות <span aria-hidden="true">←</span></a>
+                    </li>
+                    <li>
+                        <AtelierIllustration kind="budget" />
+                        <h3>עוזר התקציב</h3>
+                        <p>בדקו את העלויות וקבלו המלצה מעוזר התקציב החכם.</p>
+                        <button className="workspace-tool-link" type="button" onClick={openBudget}>
+                            פתיחת עוזר התקציב <span aria-hidden="true">↓</span>
+                        </button>
+                    </li>
+                </ul>
+                <div className="workspace-budget" ref={budget} hidden={!budgetVisible}>
+                    <BudgetAssistant key={wedding.id} weddingId={wedding.id} />
+                </div>
+            </section>
+            <section id="workspace-settings" className="workspace-settings" aria-labelledby="workspace-settings-title">
+                <header className="workspace-section-heading">
+                    <h2 id="workspace-settings-title">פרטי החתונה והזוג</h2>
+                    <button className="ui-button ui-button--text" type="button" onClick={onRefresh}>רענון פרטי החתונה</button>
+                </header>
+                <div className="workspace-settings-grid">
+                    <div>
+                        {weddings.length > 1 ? (
+                            <label className="ui-field">בחירת חתונה
+                                <select className="ui-input" value={wedding.id}
+                                    onChange={(event) => onSelect(Number(event.target.value))}>
+                                    {weddings.map(({ id, name }) => <option value={id} key={id}>{name}</option>)}
+                                </select>
+                            </label>
+                        ) : null}
+                        <CoupleNamesEditor key={wedding.id} weddingId={wedding.id} names={wedding} onSaved={onSaveNames} />
+                    </div>
+                    <div className="workspace-date-summary">
+                        <h3>תאריך החתונה</h3>
+                        <WeddingDate date={wedding.wedding_date} />
+                    </div>
+                    <div>
+                        <h3>שמות הזוג</h3>
+                        {hasNames ? <span>
+                            {[wedding.creator_display_name, wedding.partner_display_name].filter((name) => name.trim())
+                                .map((name, index) => <span key={index}>{index > 0 && " · "}<bdi>{name}</bdi></span>)}
+                        </span> : <span>טרם הוזנו</span>}
+                    </div>
+                    <div className="wedding-members">
+                        <h3>שותפים למרחב</h3>
+                        <ul>
+                            {wedding.memberships.map(({ display_name, first_name }, index) => (
+                                <li key={index}><bdi>{display_name?.trim() || first_name?.trim() || "חבר/ה במרחב"}</bdi></li>
+                            ))}
+                        </ul>
+                    </div>
+                </div>
+                {wedding.memberships.length < 2 && <PartnerInvitation key={wedding.id} weddingId={wedding.id} />}
+            </section>
+        </div>
     );
 }
 
@@ -41,6 +178,7 @@ export default function WeddingWorkspace({ preferredWeddingId }: { preferredWedd
     const [state, setState] = useState<State>({ status: "loading" });
     const [attempt, setAttempt] = useState(0);
     const [hash, setHash] = useState(window.location.hash);
+    const [selection, setSelection] = useState<{ id: number; preferred?: number } | null>(null);
 
     useEffect(() => {
         const navigate = () => setHash(window.location.hash);
@@ -86,8 +224,9 @@ export default function WeddingWorkspace({ preferredWeddingId }: { preferredWedd
     }, [attempt, preferredWeddingId]);
 
     const weddings = state.status === "ready" ? state.weddings : [];
-    const activeWedding = weddings.find(({ id }) => id === preferredWeddingId) ?? weddings[0];
-    const venueRoute = /^#\/weddings\/(\d+)\/venues$/.exec(hash);
+    const selectedId = selection?.preferred === preferredWeddingId ? selection?.id : undefined;
+    const activeWedding = weddings.find(({ id }) => id === (selectedId ?? preferredWeddingId)) ?? weddings[0];
+    const venueRoute = /^#\/weddings\/(\d+)\/venues(?:\/(compare))?$/.exec(hash);
     const venueWedding = venueRoute ? weddings.find(({ id }) => id === Number(venueRoute[1])) : undefined;
 
     function applyNames(weddingId: number, names: CoupleNames) {
@@ -98,23 +237,26 @@ export default function WeddingWorkspace({ preferredWeddingId }: { preferredWedd
         setAttempt((value) => value + 1);
     }
 
+    function applyCover(weddingId: number, url: string | null) {
+        setState((current) => current.status === "ready" ? {
+            ...current,
+            weddings: current.weddings.map((wedding) =>
+                wedding.id === weddingId ? { ...wedding, cover_image_url: url } : wedding),
+        } : current);
+        setAttempt((value) => value + 1);
+    }
+
     if (venueRoute && state.status === "ready") {
         return venueWedding
-            ? <VenuesPage weddingId={venueWedding.id} weddingName={venueWedding.name} />
+            ? <VenuesPage key={hash} weddingId={venueWedding.id} weddingName={venueWedding.name}
+                initialComparison={venueRoute[2] === "compare"} />
             : <div className="ui-panel ui-state" dir="rtl">
                 <p className="ui-error" role="alert">החתונה אינה זמינה לחשבון הזה.</p>
                 <a className="ui-button ui-button--secondary" href="#workspace">חזרה למרחב החתונה</a>
             </div>;
     }
 
-    return (
-        <>
-            <WorkspaceHero wedding={activeWedding} />
-            {renderWorkspace()}
-        </>
-    );
-
-    function renderWorkspace() {
+    if (!activeWedding) {
         if (state.status === "loading") {
             return <p className="ui-panel ui-state ui-status ui-status--loading" role="status">טוענים את המרחב המשותף שלכם...</p>;
         }
@@ -139,81 +281,15 @@ export default function WeddingWorkspace({ preferredWeddingId }: { preferredWedd
             );
         }
 
-        if (state.weddings.length === 0) {
-            return (
-                <CreateWedding
-                    onCreated={() => {
-                        setState({ status: "loading" });
-                        setAttempt((value) => value + 1);
-                    }}
-                />
-            );
-        }
-
-        return (
-            <section
-                className="wedding-workspace"
-                dir="rtl"
-                aria-labelledby="my-weddings-title"
-            >
-                <header className="wedding-workspace-header">
-                    <h2 id="my-weddings-title">
-                        {state.weddings.length === 1 ? "החתונה שלכם" : "החתונות שלכם"}
-                    </h2>
-                    <button className="ui-button ui-button--secondary" type="button"
-                        onClick={() => setAttempt((value) => value + 1)}>
-                        רענון פרטי החתונה
-                    </button>
-                </header>
-
-                <ul className="wedding-list">
-                    {state.weddings.map((wedding) => (
-                        <li className="wedding-summary ui-card" key={wedding.id}>
-                            <header className="wedding-summary-header">
-                                <h3><bdi>{wedding.name}</bdi></h3>
-                                <p className="wedding-meta">
-                                    {wedding.wedding_date ? (
-                                        <time dateTime={wedding.wedding_date}>
-                                            {new Intl.DateTimeFormat("he-IL", {
-                                                dateStyle: "long",
-                                                timeZone: "UTC",
-                                            }).format(
-                                                new Date(`${wedding.wedding_date}T00:00:00Z`)
-                                            )}
-                                        </time>
-                                    ) : (
-                                        <span>התאריך טרם נקבע</span>
-                                    )}
-                                </p>
-                            </header>
-
-                            <CoupleNamesEditor weddingId={wedding.id} names={wedding}
-                                onSaved={(names) => applyNames(wedding.id, names)} />
-
-                            <div className="wedding-tools">
-                                <div className="wedding-members ui-panel">
-                                    <h4>חברים במרחב החתונה</h4>
-                                    <ul>
-                                        {wedding.memberships.map(({ display_name, first_name }, index) => (
-                                            <li key={index}><bdi>{first_name?.trim() ? display_name ?? first_name : "חבר/ה במרחב"}</bdi></li>
-                                        ))}
-                                    </ul>
-                                    {wedding.memberships.length >= 2 ? (
-                                        <p>שני בני הזוג מחוברים למרחב המשותף.</p>
-                                    ) : (
-                                        <>
-                                            <p>ממתינים להצטרפות של בן או בת הזוג.</p>
-                                            <PartnerInvitation weddingId={wedding.id} />
-                                        </>
-                                    )}
-                                </div>
-                                <BudgetAssistant weddingId={wedding.id} />
-                            </div>
-                            <VenueSection weddingId={wedding.id} />
-                        </li>
-                    ))}
-                </ul>
-            </section>
-        );
+        return <CreateWedding onCreated={() => {
+            setState({ status: "loading" });
+            setAttempt((value) => value + 1);
+        }} />;
     }
+
+    return <WeddingHomepage wedding={activeWedding} weddings={weddings}
+        onSelect={(id) => setSelection({ id, preferred: preferredWeddingId })}
+        onRefresh={() => setAttempt((value) => value + 1)}
+        onSaveNames={(names) => applyNames(activeWedding.id, names)}
+        onSaveCover={(url) => applyCover(activeWedding.id, url)} />;
 }

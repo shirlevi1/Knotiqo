@@ -282,12 +282,9 @@ export default function Login({ invitationToken }: { invitationToken?: string })
         return (
             <main className="welcome-page" dir="rtl">
                 <header className="app-header app-header--workspace">
-                    <a className="wordmark" href="/" lang="en">
-                        Knotiqo
-                        <span lang="he">מתחילים את הפרק הבא</span>
-                    </a>
+                    <a className="wordmark" href="#workspace" lang="en">Knotiqo</a>
                     <button
-                        className="ui-button ui-button--secondary"
+                        className="ui-button ui-button--text"
                         type="button"
                         onClick={handleLogout}
                         disabled={loading}

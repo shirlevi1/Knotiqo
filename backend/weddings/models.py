@@ -7,6 +7,7 @@ class Wedding(models.Model):
     creator_display_name = models.CharField(max_length=80, blank=True, default="")
     partner_display_name = models.CharField(max_length=80, blank=True, default="")
     wedding_date = models.DateField(null=True, blank=True)
+    cover_image = models.ImageField(upload_to="wedding-covers/", blank=True, db_default="")
     created_at = models.DateTimeField(auto_now_add=True)
 
     members = models.ManyToManyField(

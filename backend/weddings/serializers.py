@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from .covers import cover_url
 from .models import Wedding
 
 
@@ -28,9 +29,14 @@ class CoupleNamesSerializer(serializers.ModelSerializer):
 
 
 class WeddingSerializer(CoupleNamesSerializer):
+    cover_image_url = serializers.SerializerMethodField()
+
     class Meta(CoupleNamesSerializer.Meta):
-        fields = ["id", "name", "wedding_date", *CoupleNamesSerializer.Meta.fields]
+        fields = ["id", "name", "wedding_date", "cover_image_url", *CoupleNamesSerializer.Meta.fields]
         read_only_fields = ["id"]
+
+    def get_cover_image_url(self, wedding):
+        return cover_url(wedding)
 
     def to_internal_value(self, data):
         if isinstance(data, dict):

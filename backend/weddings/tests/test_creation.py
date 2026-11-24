@@ -55,6 +55,7 @@ class WeddingCreationTests(TestCase):
                 "id": wedding.id,
                 "name": "Our Wedding",
                 "wedding_date": "2027-06-15",
+                "cover_image_url": None,
                 **COUPLE_NAMES,
             }
         )

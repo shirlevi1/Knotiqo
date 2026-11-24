@@ -9,6 +9,7 @@ export type Wedding = Partial<CoupleNames> & {
     id: number;
     name: string;
     wedding_date: string | null;
+    cover_image_url?: string | null;
 };
 
 type WeddingMembership = { display_name: string | null; first_name?: string | null };
@@ -38,10 +39,15 @@ export function isWedding(value: unknown): value is Wedding {
     return typeof value === "object" && value !== null
         && (!("creator_display_name" in value) || typeof value.creator_display_name === "string")
         && (!("partner_display_name" in value) || typeof value.partner_display_name === "string")
+        && (!("cover_image_url" in value) || isCoverUrl(value.cover_image_url))
         && "id" in value && typeof value.id === "number"
         && "name" in value && typeof value.name === "string"
         && "wedding_date" in value && (value.wedding_date === null
             || (typeof value.wedding_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value.wedding_date)));
+}
+
+function isCoverUrl(value: unknown): value is string | null {
+    return value === null || (typeof value === "string" && /^\/api\/weddings\/\d+\/cover\/\?v=[a-f0-9]{16}$/.test(value));
 }
 
 const coupleNameError = "יש להזין שם באורך של עד 80 תווים.";
@@ -114,15 +120,19 @@ export async function getWeddings(signal: AbortSignal): Promise<WeddingDetails[]
     }));
 }
 
-async function writeWedding(url: string, method: "POST" | "PUT", input: CoupleNames, signal?: AbortSignal) {
-    const options = { credentials: "same-origin", signal } as const;
+async function csrfForWedding(options: RequestInit) {
     const csrfResponse = await fetch("/api/auth/csrf/", options);
     if (!csrfResponse.ok) {
         throw new WeddingApiError("לא ניתן לאתחל את בדיקת האבטחה. נסו שוב.");
     }
     const token = getCsrfToken();
     if (!token) throw new WeddingApiError("לא נמצא אישור אבטחה. רעננו את הדף ונסו שוב.");
+    return token;
+}
 
+async function writeWedding(url: string, method: "POST" | "PUT", input: CoupleNames, signal?: AbortSignal) {
+    const options = { credentials: "same-origin", signal } as const;
+    const token = await csrfForWedding(options);
     const response = await fetch(url, {
         ...options,
         method,
@@ -130,6 +140,32 @@ async function writeWedding(url: string, method: "POST" | "PUT", input: CoupleNa
         body: JSON.stringify(input),
     });
     return { status: response.status, data: await readResponse(response) };
+}
+
+export async function updateWeddingCover(weddingId: number, file: File | null, signal: AbortSignal) {
+    const options = { credentials: "same-origin", signal, cache: "no-store" } as const;
+    const token = await csrfForWedding(options);
+    const body = file ? new FormData() : undefined;
+    if (file) body?.append("cover", file);
+    const path = `/api/weddings/${weddingId}/cover/`;
+    const response = await fetch(path, {
+        ...options, method: file ? "POST" : "DELETE", body,
+        headers: { "X-CSRFToken": token },
+    });
+    if (response.status === 413) throw new WeddingApiError("אפשר להעלות תמונה בגודל של עד 5 MB.");
+    if (response.status === 400 || response.status === 415) {
+        const data = await response.json().catch(() => null);
+        throw new WeddingApiError(data?.code === "unsafe_dimensions"
+            ? "ממדי התמונה גדולים מדי. בחרו תמונה קטנה יותר."
+            : "לא הצלחנו לקרוא את התמונה. בחרו קובץ JPEG, PNG או WebP תקין.");
+    }
+    const data = await readResponse(response);
+    if (typeof data !== "object" || data === null || !("cover_image_url" in data)
+        || !isCoverUrl(data.cover_image_url) || (file
+            ? !data.cover_image_url?.startsWith(path + "?") : data.cover_image_url !== null)) {
+        throw new WeddingApiError("לא הצלחנו לאשר את עדכון התמונה. רעננו את העמוד.");
+    }
+    return data.cover_image_url;
 }
 
 export async function createWedding(input: CreateWeddingInput): Promise<Wedding> {

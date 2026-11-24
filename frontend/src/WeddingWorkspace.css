@@ -1,122 +1,231 @@
+.welcome-page:has(> .wedding-workspace) {
+    inline-size: min(94%, 1800px);
+    max-inline-size: none;
+    padding: clamp(10px, 1.4vw, 22px) 0 var(--space-6);
+}
+.app-header.app-header--workspace { padding: 3px clamp(12px, 2.5vw, 24px); border-radius: 15px; }
+.app-header--workspace .wordmark { font-size: clamp(27px, 3vw, 33px); line-height: 1; }
+.app-header--workspace .ui-button { min-block-size: 44px; }
+.welcome-page:has(> .wedding-workspace) > .app-header {
+    background: #354c60;
+    color: #fff;
+    border-color: #354c60;
+    border-radius: 10px;
+    box-shadow: none;
+}
+.welcome-page:has(> .wedding-workspace) > .app-header :is(.wordmark, .ui-button) { color: inherit; }
+.welcome-page:has(> .wedding-workspace) > .app-header :focus-visible { outline-color: #dce9f2; }
+
+.wedding-workspace {
+    --atelier-paper: #f6f8fa;
+    --atelier-ink: #253c50;
+    --atelier-blue: #354e64;
+    --atelier-border: #dce4ea;
+    margin-block-start: var(--space-4);
+    color: var(--atelier-ink);
+}
 .workspace-hero {
-    margin-block: clamp(20px, 4vw, 44px) var(--space-5);
-    padding: clamp(30px, 6vw, 66px) clamp(16px, 5vw, 48px);
-    text-align: center;
-    overflow-wrap: anywhere;
-}
-
-.workspace-hero .eyebrow { margin-block: 0 var(--space-4); }
-
-.workspace-hero h1 {
-    margin-block: 0;
-    font-size: clamp(30px, 5vw, 54px);
-    line-height: 1.15;
-}
-
-.workspace-names {
-    margin-block: var(--space-2) 0;
-    color: var(--color-link);
-    font-size: clamp(24px, 4vw, 40px);
-    font-weight: 400;
-    line-height: 1.25;
-}
-
-.workspace-subtitle {
-    margin-block: var(--space-4) 0;
-    color: var(--color-text-muted);
-}
-
-.couple-name-editor { margin-block-start: var(--space-4); }
-.couple-name-form {
-    margin-block-start: var(--space-3);
-    padding: var(--space-4);
-}
-.couple-name-fields {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
-    gap: 0 var(--space-4);
+    grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr);
+    overflow: hidden;
+    border: 1px solid var(--atelier-border);
+    border-radius: 12px;
+    background: var(--atelier-paper);
+    min-block-size: clamp(270px, 25vw, 370px);
 }
-.couple-name-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
-
-.wedding-create,
-.wedding-summary {
-    padding: clamp(16px, 4vw, 40px);
-    overflow-wrap: anywhere;
+.workspace-hero-copy {
+    align-self: center;
+    text-align: start;
+    padding: clamp(22px, 4vw, 68px);
+    min-inline-size: 0;
 }
-
-.wedding-create {
-    max-inline-size: 620px;
-    margin: var(--space-6) auto;
-}
-
-.wedding-create h2,
-.wedding-workspace-header h2,
-.wedding-summary h3,
-.wedding-members h4 {
-    margin: 0;
-}
-
-.wedding-create h2,
-.wedding-workspace-header h2,
-.wedding-summary h3 {
-    font-size: var(--type-section);
-}
-
-.wedding-create > p,
-.wedding-meta,
-.wedding-members > p,
-.partner-invitation > p:not(.ui-error) {
-    color: var(--color-text-muted);
-}
-
-.wedding-create form { margin-block-start: var(--space-6); }
-
-.wedding-workspace-header {
+.workspace-edition, .workspace-date {
     display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
+    justify-content: flex-start;
     align-items: center;
     gap: var(--space-3);
-    margin-block: var(--space-8) var(--space-4);
+    color: var(--color-text-muted);
 }
-
-.wedding-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: grid;
-    gap: var(--space-5);
+.workspace-edition { margin: 0; font: italic 500 clamp(20px, 2.25vw, 26px)/1.1 var(--font-editorial); }
+.workspace-date { margin-block: 5px 6px; font-size: var(--type-note); }
+.workspace-edition::before {
+    content: "";
+    inline-size: clamp(16px, 2vw, 32px);
+    border-block-start: 1px solid #cdd5db;
 }
-
-.wedding-meta {
+.workspace-names {
+    margin: 4px 0;
+    color: var(--atelier-ink);
+    font: 500 clamp(40px, 4.4vw, 70px)/1.04 var(--font-heading);
+    overflow-wrap: anywhere;
+}
+.workspace-names[dir="ltr"] { font-family: var(--font-editorial); text-align: right; }
+.workspace-hero-line { font: 500 clamp(23px, 2.2vw, 34px)/1.15 var(--font-heading); margin-block: var(--space-3) 6px; }
+.workspace-hero-caption { color: var(--color-text-muted); margin: 0 0 var(--space-4); max-inline-size: 36ch; font-size: var(--type-label); line-height: 1.5; }
+.workspace-hero-copy .ui-button { gap: var(--space-2); background: var(--atelier-blue); color: #fff; min-block-size: 44px; }
+.workspace-hero-copy .ui-button:hover { background: #263d52; }
+.workspace-hero-art {
+    min-block-size: 100%;
+    position: relative;
+    overflow: hidden;
+    background: #dce5ec;
+}
+.workspace-hero-image {
+    display: block;
+    position: absolute;
+    inset: 0;
+    inline-size: 100%;
+    block-size: 100%;
+    object-fit: cover;
+    object-position: 42% 54%;
+}
+.workspace-cover-trigger {
+    position: absolute;
+    inset-inline-end: var(--space-3);
+    inset-block-end: var(--space-3);
+    min-block-size: 44px;
+    padding-inline: var(--space-3);
+    border: 1px solid #d7e3eb;
+    border-radius: 7px;
+    background: #f9fcfe;
+    color: #354c60;
+    font: 600 var(--type-label)/1.2 var(--font-body);
+    cursor: pointer;
+}
+.workspace-cover-trigger:hover { background: #ebf3f8; }
+.workspace-cover-trigger:focus-visible { outline: 2px solid #354c60; outline-offset: 2px; }
+.workspace-cover-status {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    clip-path: inset(50%);
+    overflow: hidden;
+}
+.workspace-cover-dialog {
+    inline-size: min(34rem, calc(100% - 24px));
+    max-block-size: calc(100dvh - 24px);
+    padding: clamp(14px, 4vw, 26px);
+    color: var(--color-text);
+}
+.workspace-cover-dialog::backdrop { background: #17283a80; }
+.workspace-cover-dialog h2 { margin-block: 0 var(--space-3); font-size: var(--type-section); }
+.workspace-cover-dialog input { min-inline-size: 0; }
+.workspace-cover-hint { color: var(--color-text-muted); font-size: var(--type-label); }
+.workspace-cover-preview { display: block; inline-size: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 7px; }
+.workspace-cover-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-block-start: var(--space-4); }
+.workspace-planning, .workspace-settings { margin-block-start: clamp(16px, 2vw, 24px); scroll-margin-block-start: var(--space-4); }
+.workspace-section-heading {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--space-2) var(--space-4);
-    margin-block: var(--space-2) 0;
-    font-size: var(--type-label);
+    align-items: center;
+    gap: var(--space-3);
+    margin-block-end: var(--space-2);
 }
-
-.wedding-tools {
+.workspace-section-heading::after { content: ""; flex: 1; border-block-start: 1px solid var(--atelier-border); order: 1; }
+.workspace-section-heading h2 {
+    display: flex; align-items: center; gap: var(--space-2);
+    margin: 0; font-size: clamp(25px, 3vw, 32px); line-height: 1.15;
+}
+.workspace-inline-link, .workspace-section-heading > button { order: 2; }
+.workspace-inline-link { display: inline-flex; align-items: center; gap: var(--space-2); min-block-size: 44px; color: var(--color-link); font-size: var(--type-label); }
+.workspace-tools {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
-    align-items: start;
-    gap: var(--space-4);
-    margin-block-start: var(--space-6);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: clamp(10px, 1.3vw, 16px);
+    padding: 0;
+    margin: 0;
+    list-style: none;
 }
+.workspace-tools > li {
+    display: grid;
+    justify-items: start;
+    grid-template-rows: auto auto 1fr auto;
+    gap: 6px;
+    padding: clamp(16px, 2vw, 26px) clamp(16px, 2vw, 28px) 8px;
+    text-align: start;
+    min-inline-size: 0;
+    border: 1px solid var(--atelier-border);
+    border-radius: 10px;
+    background: #fcfdfe;
+    box-shadow: 0 3px 10px #324c6408;
+    transition: border-color var(--transition-control), box-shadow var(--transition-control);
+}
+.workspace-tools > li:is(:hover, :focus-within) { border-color: #a7bbc9; box-shadow: 0 4px 14px #324c6410; }
+.workspace-tools h3 { margin: 0; font-size: clamp(22px, 2.2vw, 27px); line-height: 1.2; }
+.workspace-tools p { margin: 0; color: var(--color-text-muted); font-size: var(--type-label); max-inline-size: 31ch; line-height: 1.5; }
+.atelier-illustration { inline-size: 39px; block-size: 39px; color: #516d82; margin-block-end: 3px; }
+.workspace-tool-link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-block-size: 44px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--color-link);
+    font: 600 var(--type-label)/1.3 var(--font-body);
+    cursor: pointer;
+}
+.workspace-tool-link:hover { text-decoration: underline; }
+.workspace-budget { margin-block-start: var(--space-3); }
+.workspace-budget .budget-assistant { background: var(--color-surface-soft); border-radius: var(--radius-card); }
+.workspace-settings {
+    padding-block-end: var(--space-5);
 
-.wedding-members { padding: clamp(14px, 3vw, 24px); }
-.wedding-members h4 { font-size: 21px; }
+    overflow-wrap: anywhere;
+}
+.workspace-settings-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--space-3);
+}
+.workspace-settings-grid > div { min-inline-size: 0; padding: var(--space-2) var(--space-4); }
+.workspace-settings .ui-field { max-inline-size: 26rem; }
 .wedding-members ul { margin-block: var(--space-2); padding-inline-start: var(--space-5); }
+.wedding-members > p, .partner-invitation > p:not(.ui-error) { color: var(--color-text-muted); }
 .wedding-members > p { margin-block: var(--space-2) 0; }
-
-.partner-invitation {
-    margin-block-start: var(--space-4);
-    padding-block-start: var(--space-4);
-    border-block-start: 1px solid var(--color-border);
-}
-
-.partner-invitation :is(form, .invitation-success .ui-field) {
-    margin-block-start: var(--space-4);
-}
-
+.partner-invitation { margin-block-start: var(--space-3); padding-block-start: var(--space-3); border-block-start: 1px solid var(--color-border); }
+.partner-invitation h4 { margin: 0; }
 .invitation-success p { margin-block: var(--space-2); }
+.couple-name-editor { margin-block-start: var(--space-3); }
+.couple-name-form { margin-block-start: var(--space-3); padding: var(--space-4); }
+.couple-name-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr)); gap: 0 var(--space-4); }
+.couple-name-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.wedding-create { max-inline-size: 620px; margin: var(--space-6) auto; padding: clamp(16px, 4vw, 40px); overflow-wrap: anywhere; }
+.wedding-create h2 { margin: 0; font-size: var(--type-section); }
+.wedding-create > p { color: var(--color-text-muted); }
+.wedding-create form { margin-block-start: var(--space-6); }
+
+
+.workspace-settings-grid {
+    background: #fdfdfe;
+    border: 1px solid var(--atelier-border);
+    border-radius: 12px;
+    align-items: start;
+    box-shadow: 0 4px 14px #324c6409;
+}
+.workspace-settings-grid > :not(:first-child) { border-inline-start: 1px solid var(--atelier-border); }
+.workspace-settings-grid h3 { margin: 0; font: 600 var(--type-label)/1.4 var(--font-body); color: var(--atelier-ink); }
+.workspace-settings-grid .wedding-members h3 { font: 600 var(--type-label)/1.4 var(--font-body); }
+.workspace-settings-grid .wedding-members ul { display: flex; flex-wrap: wrap; gap: 0 var(--space-3); margin: 0; padding: 0; list-style: none; }
+.workspace-settings-grid .ui-field { margin-bottom: 4px; }
+.workspace-settings-grid .couple-name-editor { margin-block-start: 4px; }
+.workspace-settings-grid .couple-name-editor > .ui-button { min-block-size: 44px; }
+.workspace-settings .partner-invitation { margin-inline: var(--space-4); }
+
+@media (min-width: 621px) and (max-width: 900px) {
+    .workspace-settings-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .workspace-settings-grid > :nth-child(3) { border-inline-start: 0; }
+}
+@media (max-width: 620px) {
+    .workspace-hero, .workspace-tools, .workspace-settings-grid { grid-template-columns: minmax(0, 1fr); }
+    .workspace-hero-art { grid-row: 1; min-block-size: 0; aspect-ratio: 16 / 9; }
+    .workspace-hero-copy { padding: var(--space-4) var(--space-5) var(--space-5); }
+    .workspace-section-heading { column-gap: var(--space-2); }
+    .workspace-section-heading::after { display: none; }
+    .workspace-tools > li { padding-block-start: var(--space-3); }
+    .workspace-settings-grid > :not(:first-child) { border-inline-start: 0; border-block-start: 1px solid var(--atelier-border); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .workspace-tools > li { transition: none; }
+}

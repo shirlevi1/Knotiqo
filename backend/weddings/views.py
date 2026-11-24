@@ -1,17 +1,20 @@
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import authentication_classes
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, parser_classes, permission_classes
+from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from .serializers import CoupleNamesSerializer, WeddingDetailsSerializer, WeddingSerializer
 from .services import create_wedding, update_couple_names, wedding_details_for_user, weddings_for_user
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.cache import never_cache
 from rest_framework.exceptions import ValidationError as DRFValidationError
 
 from .models import Wedding
+from .covers import CoverError, cover_url, normalize_cover, replace_cover
 from .serializers import CreateInvitationSerializer, InvitationTokenSerializer
 from .services import accept_partner_invitation, create_partner_invitation, preview_partner_invitation
 
@@ -39,6 +42,45 @@ def my_weddings(request):
 def wedding_details(request, wedding_id):
     wedding = wedding_details_for_user(user=request.user, wedding_id=wedding_id)
     return Response(WeddingDetailsSerializer(wedding).data)
+
+
+@never_cache
+@api_view(["GET", "POST", "DELETE"])
+@authentication_classes([SessionAuthentication])
+@permission_classes([IsAuthenticated])
+@parser_classes([MultiPartParser])
+def wedding_cover(request, wedding_id):
+    wedding = weddings_for_user(user=request.user).filter(pk=wedding_id).first()
+    if wedding is None:
+        raise Http404()
+    if request.method == "GET":
+        if not wedding.cover_image:
+            raise Http404()
+        try:
+            with wedding.cover_image.open("rb") as stream:
+                image_bytes = stream.read()
+        except FileNotFoundError as error:
+            raise Http404() from error
+        except Exception:
+            return Response({"code": "storage_unavailable"}, status=503)
+        response = HttpResponse(image_bytes, content_type="image/webp")
+        response["X-Content-Type-Options"] = "nosniff"
+        return response
+
+    try:
+        content = None
+        if request.method == "POST":
+            files = request.FILES.getlist("cover")
+            if set(request.data) != {"cover"} or len(files) != 1 or len(request.data.getlist("cover")) != 1:
+                raise CoverError("invalid_upload")
+            content = normalize_cover(files[0])
+        updated = replace_cover(user=request.user, wedding_id=wedding_id, content=content)
+    except Http404 as error:
+        raise Http404() from error
+    except CoverError as error:
+        status = {"too_large": 413, "storage_unavailable": 503}.get(error.code, 400)
+        return Response({"code": error.code}, status=status)
+    return Response({"cover_image_url": cover_url(updated)})
 
 
 @never_cache

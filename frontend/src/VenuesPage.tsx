@@ -41,18 +41,20 @@ function DeleteDialog({ removal, busy, error, onConfirm, onClose }: {
     );
 }
 
-export default function VenuesPage({ weddingId, weddingName }: { weddingId: number; weddingName: string }) {
-    return <WeddingVenues key={weddingId} weddingId={weddingId} weddingName={weddingName} />;
+type VenuePageProps = { weddingId: number; weddingName: string; initialComparison?: boolean };
+
+export default function VenuesPage(props: VenuePageProps) {
+    return <WeddingVenues key={props.weddingId} {...props} />;
 }
 
-function WeddingVenues({ weddingId, weddingName }: { weddingId: number; weddingName: string }) {
+function WeddingVenues({ weddingId, weddingName, initialComparison = false }: VenuePageProps) {
     const [rows, setRows] = useState<Entry[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
     const [attempt, setAttempt] = useState(0);
     const [selectedId, setSelectedId] = useState<number | null>(null);
-    const [comparing, setComparing] = useState(false);
+    const [comparing, setComparing] = useState(initialComparison);
     const [editor, setEditor] = useState<Editor | null>(null);
     const [removal, setRemoval] = useState<Removal | null>(null);
     const [busy, setBusy] = useState(false);
@@ -165,8 +167,11 @@ function WeddingVenues({ weddingId, weddingName }: { weddingId: number; weddingN
                     onClick={() => setComparing(true)}>השוואת אולמות</button>
             </div>}
 
-            {comparing ? <VenueComparison weddingId={weddingId} entries={rows} onClose={() => setComparing(false)} />
-                : loading ? <p className="ui-status ui-status--loading" role="status">טוענים אולמות והצעות מחיר…</p> : (
+            {loading ? <p className="ui-status ui-status--loading" role="status">טוענים אולמות והצעות מחיר…</p>
+                : comparing ? <VenueComparison weddingId={weddingId} entries={rows} onClose={() => {
+                    if (initialComparison) window.location.hash = `/weddings/${weddingId}/venues`;
+                    setComparing(false);
+                }} /> : (
                 <>
                     {editor?.kind === "venue" && <VenueForm key={`venue-${editor.venue?.id ?? "new"}`} initial={editor.venue}
                         onCancel={closeEditor} onSave={async (input) => {

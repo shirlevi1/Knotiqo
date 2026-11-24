@@ -69,6 +69,7 @@ class InvitationAcceptanceTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {
             "id": self.wedding.pk, "name": self.wedding.name, "wedding_date": None,
+            "cover_image_url": None,
             "creator_display_name": "", "partner_display_name": "",
         })
         self.assertEqual(Wedding.objects.count(), 1)

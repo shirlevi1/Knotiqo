@@ -57,6 +57,7 @@ class WeddingAccessTests(TestCase):
             "id": self.wedding.pk,
             "name": "Our Wedding",
             "wedding_date": "2027-06-15",
+            "cover_image_url": None,
             "creator_display_name": "",
             "partner_display_name": "",
             "memberships": [
@@ -88,6 +89,7 @@ class WeddingAccessTests(TestCase):
             "id": wedding.pk,
             "name": "New Wedding",
             "wedding_date": None,
+            "cover_image_url": None,
             "creator_display_name": "",
             "partner_display_name": "",
             "memberships": [{"display_name": "Dana Levi", "first_name": "Dana"}],
