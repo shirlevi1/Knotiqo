@@ -46,6 +46,13 @@ function wedding(id, memberships, names = {}) {
     return { id, name: `Wedding ${id}`, wedding_date: null, memberships, ...names };
 }
 
+async function navigate(hash) {
+    await act(() => {
+        window.history.replaceState(null, "", "/" + hash);
+        window.dispatchEvent(new dom.window.Event("hashchange"));
+    });
+}
+
 function mockWeddings(t, weddings) {
     t.mock.method(globalThis, "fetch", async () => Response.json(weddings));
 }
@@ -66,7 +73,7 @@ async function coverClick(label) {
 }
 
 async function selectCover(type) {
-    const input = container.querySelector('dialog input[type="file"]');
+    const input = container.querySelector('.workspace-cover-dialog input[type="file"]');
     Object.defineProperty(input, "files", { configurable: true, value: [
         new dom.window.File(["cover"], "cover.png", { type }),
     ] });
@@ -101,11 +108,11 @@ test("previews a local selection, preserves the cover on cancel, saves and confi
     assert.equal(coverSrc(), defaultCover);
     await coverClick("שינוי תמונת רקע");
     await selectCover("image/svg+xml");
-    assert.match(container.querySelector("dialog [role=alert]").textContent, /בחרו תמונה/);
+    assert.match(container.querySelector(".workspace-cover-dialog [role=alert]").textContent, /בחרו תמונה/);
     await selectCover("image/png");
-    assert.equal(container.querySelector("dialog img").getAttribute("src"), "blob:preview");
+    assert.equal(container.querySelector(".workspace-cover-dialog img").getAttribute("src"), "blob:preview");
     await coverClick("ביטול");
-    assert.equal(container.querySelector("dialog"), null);
+    assert.equal(container.querySelector(".workspace-cover-dialog"), null);
     assert.equal(coverSrc(), defaultCover);
     assert.equal(revoke.mock.callCount(), 1);
     await coverClick("שינוי תמונת רקע");
@@ -117,14 +124,14 @@ test("previews a local selection, preserves the cover on cancel, saves and confi
     assert.equal(coverSrc(), personalCover);
     await coverClick("אישור הסרה");
     assert.equal(coverSrc(), defaultCover);
-    assert.equal(container.querySelector("dialog"), null);
+    assert.equal(container.querySelector(".workspace-cover-dialog"), null);
 });
 
 test("uses only the selected wedding's cover and recovers from image load failure", async (t) => {
     mockWeddings(t, [wedding(1, [], { cover_image_url: personalCover }), wedding(2, [])]);
     await render();
     assert.equal(coverSrc(), personalCover);
-    const select = container.querySelector(".workspace-settings select");
+    const select = container.querySelector(".atelier-sidebar select");
     await act(() => {
         select.value = "2";
         select.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
@@ -156,7 +163,9 @@ test("uses only the active wedding's stored display names", async (t) => {
     assert.equal(hero.querySelector("time").dateTime, "2027-06-15");
     assert.equal(hero.closest(".wedding-workspace").dir, "rtl");
     assert.equal((await render(1)).querySelector("h1").textContent, "דנה & Liam");
-    assert.ok(container.querySelector(".workspace-settings .partner-invitation"));
+    assert.equal(container.querySelector(".workspace-settings .partner-invitation"), null);
+    await navigate("#/weddings/1/settings");
+    assert.ok(container.querySelector(".atelier-settings .partner-invitation"));
 });
 
 test("loads the existing shared workspace with both members and absent or blank couple names", async (t) => {
@@ -179,9 +188,9 @@ test("loads the existing shared workspace with both members and absent or blank 
     assert.match(settings.textContent, /נועה כהן/);
     assert.match(settings.textContent, /יובל לוי/);
     assert.equal(settings.querySelector(".partner-invitation"), null);
-    assert.equal(settings.querySelector(".couple-name-editor button").textContent, "השלמת שמות הזוג");
+    assert.equal(settings.querySelector(".couple-name-editor"), null);
     assert.equal(container.querySelectorAll(".budget-assistant summary").length, 1);
-    const select = settings.querySelector("select");
+    const select = container.querySelector(".atelier-sidebar select");
     assert.equal(select.options.length, 2);
     await act(() => {
         select.value = "2";
@@ -223,15 +232,17 @@ test("completes the stored names with session CSRF and refreshes the hero", asyn
 
     const hero = await render(1);
     assert.equal(hero.querySelector("h1").textContent, "Wedding 1");
+    await navigate("#/weddings/1/settings");
     await act(() => container.querySelector(".couple-name-editor button").click());
     const form = container.querySelector(".couple-name-form");
     form.elements.namedItem("creator_display_name").value = "  דנה  ";
     form.elements.namedItem("partner_display_name").value = "  יובל  ";
     await act(() => form.requestSubmit());
 
-    assert.equal(hero.querySelector("h1").textContent, "דנה ויובל");
     assert.equal(container.querySelector(".couple-name-form"), null);
     assert.ok(container.querySelector(".partner-invitation"));
+    await navigate("#workspace");
+    assert.equal(container.querySelector(".workspace-hero h1").textContent, "דנה ויובל");
 });
 
 test("opens the authorized comparison route and returns to venue management", async (t) => {
@@ -259,7 +270,7 @@ test("shows loading, then a retryable error and an empty onboarding view", async
     assert.match(container.querySelector('[role="status"]').textContent, /טוענים/);
     await act(() => pending.resolve(Response.json({}, { status: 503 })));
     assert.ok(container.querySelector('[role="alert"]'));
-    await act(() => container.querySelector("button").click());
+    await act(() => container.querySelector(".workspace-content button").click());
     assert.ok(container.querySelector(".wedding-create form"));
     assert.equal(container.querySelector(".workspace-hero"), null);
 });
@@ -284,4 +295,78 @@ test("restores the dedicated venue route using only the authorized wedding ID", 
     });
     assert.match(container.querySelector('[role="alert"]').textContent, /אינה זמינה/);
     assert.equal(urls.some((url) => url.includes("/999/")), false);
+});
+
+test("sidebar preserves the wedding across account and settings routes and saves the shared date", async (t) => {
+    let date = null;
+    t.mock.method(globalThis, "fetch", async (url, options) => {
+        if (url === "/api/auth/csrf/") {
+            document.cookie = "csrftoken=settings-test";
+            return Response.json({});
+        }
+        if (url === "/api/weddings/2/") {
+            assert.equal(options.method, "PATCH");
+            assert.equal(options.headers["X-CSRFToken"], "settings-test");
+            date = JSON.parse(options.body).wedding_date;
+            return Response.json({ wedding_date: date });
+        }
+        assert.equal(url, "/api/weddings/?include=memberships");
+        return Response.json([wedding(1, []), wedding(2, [], { wedding_date: date })]);
+    });
+    await render();
+    await navigate("#/weddings/2/budget");
+    assert.equal(container.querySelector(".atelier-sidebar [aria-current]").getAttribute("href"), "#/weddings/2/budget");
+    assert.equal(container.querySelector(".budget-assistant").open, true);
+    await navigate("#/weddings/2/settings");
+    const form = container.querySelector(".atelier-settings form");
+    form.elements.namedItem("date").value = "2027-06-15";
+    await act(() => form.requestSubmit());
+    assert.match(form.textContent, /השינויים נשמרו/);
+    await navigate("#workspace");
+    assert.equal(container.querySelector(".workspace-hero time").dateTime, "2027-06-15");
+    const collapse = container.querySelector(".atelier-collapse");
+    await act(() => collapse.click());
+    assert.equal(collapse.getAttribute("aria-expanded"), "false");
+});
+
+test("profile and password forms use the account API and validate password confirmation", async (t) => {
+    const profile = { first_name: "Dana", last_name: "", email: "old@example.com" };
+    let passwordWrites = 0;
+    t.mock.method(globalThis, "fetch", async (url, options) => {
+        if (url === "/api/weddings/?include=memberships") return Response.json([]);
+        if (url === "/api/auth/csrf/") {
+            document.cookie = "csrftoken=account-test";
+            return Response.json({});
+        }
+        if (url === "/api/auth/profile/" && !options.method) return Response.json(profile);
+        assert.equal(options.headers["X-CSRFToken"], "account-test");
+        assert.equal(options.credentials, "same-origin");
+        const payload = JSON.parse(options.body);
+        if (url === "/api/auth/profile/") {
+            assert.deepEqual(payload, { ...profile, email: "new@example.com" });
+            return Response.json(payload);
+        }
+        assert.equal(url, "/api/auth/change-password/");
+        assert.equal(payload.new_password, payload.confirm_password);
+        passwordWrites += 1;
+        return Response.json({});
+    });
+    await render();
+    await navigate("#/account/profile");
+    let form = container.querySelector(".atelier-settings form");
+    form.elements.namedItem("email").value = "new@example.com";
+    await act(() => form.requestSubmit());
+    assert.match(form.textContent, /השינויים נשמרו/);
+    await navigate("#/account/security");
+    form = container.querySelector(".atelier-settings form");
+    form.elements.namedItem("old_password").value = "Current!";
+    form.elements.namedItem("new_password").value = "Replacement!42";
+    form.elements.namedItem("confirm_password").value = "different";
+    await act(async () => form.requestSubmit());
+    assert.match(form.querySelector("[role=alert]").textContent, /אינן תואמות/);
+    assert.equal(passwordWrites, 0);
+    form.elements.namedItem("confirm_password").value = "Replacement!42";
+    await act(() => form.requestSubmit());
+    assert.equal(passwordWrites, 1);
+    assert.equal(form.elements.namedItem("new_password").value, "");
 });

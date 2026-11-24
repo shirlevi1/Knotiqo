@@ -1,15 +1,17 @@
 
 import json
 
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
+from django.views.decorators.cache import never_cache
+from django.views.decorators.debug import sensitive_variables
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, connection, transaction
 
 # ==========================================
 # Helpers
@@ -98,25 +100,46 @@ def me_view(request):
     })
 
 
-@require_POST
+def lock_account_email_writes():
+    # Django's default User email is not unique. Serialize the application's
+    # registration and profile changes without dropping historical accounts.
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT pg_advisory_xact_lock(%s)", [816408201])
+
+
+@never_cache
+@require_http_methods(["GET", "POST"])
 @csrf_protect
 def update_profile_view(request):
     user = request.user
     if not user.is_authenticated or not user.is_active:
         return JsonResponse({"error": "Not authenticated"}, status=401)
 
+    fields = {"first_name", "last_name", "email"}
+    if request.method == "GET":
+        return JsonResponse({field: getattr(user, field) for field in fields})
     data = parse_json_body(request)
-    if data is None or set(data) != {"first_name"} or not isinstance(data["first_name"], str):
-        return JsonResponse({"error": "Only first_name is accepted"}, status=400)
-
-    first_name = data["first_name"].strip()
-    max_length = user._meta.get_field("first_name").max_length
-    if not first_name or len(first_name) > max_length or not first_name.isprintable():
-        return JsonResponse({"error": "Invalid first name"}, status=400)
-
-    user.first_name = first_name
-    user.save(update_fields=["first_name"])
-    return JsonResponse({"first_name": first_name})
+    if not data or set(data) - fields or not all(isinstance(value, str) for value in data.values()):
+        return JsonResponse({"error": "Invalid profile fields"}, status=400)
+    changes = {field: value.strip() for field, value in data.items()}
+    for field, value in changes.items():
+        if (len(value) > user._meta.get_field(field).max_length or (value and not value.isprintable())
+                or (not value and field != "last_name")):
+            return JsonResponse({"error": "Invalid profile field", "field": field}, status=400)
+        if field == "email":
+            try:
+                validate_email(value)
+            except ValidationError:
+                return JsonResponse({"error": "Invalid email address", "field": "email"}, status=400)
+    with transaction.atomic():
+        if "email" in changes:
+            lock_account_email_writes()
+            if get_user_model().objects.filter(email__iexact=changes["email"]).exclude(pk=user.pk).exists():
+                return JsonResponse({"error": "Email already exists", "field": "email"}, status=400)
+        for field, value in changes.items():
+            setattr(user, field, value)
+        user.save(update_fields=list(changes))
+    return JsonResponse(changes)
 
 
 # ==========================================
@@ -139,8 +162,10 @@ def logout_view(request):
 
 @require_POST
 @csrf_protect
+@never_cache
+@sensitive_variables("data", "old_password", "new_password", "confirmation")
 def change_password_view(request):
-    if not request.user.is_authenticated:
+    if not request.user.is_authenticated or not request.user.is_active:
         return JsonResponse(
             {"error": "Not authenticated"},
             status=401,
@@ -156,40 +181,30 @@ def change_password_view(request):
 
     old_password = data.get("old_password")
     new_password = data.get("new_password")
+    confirmation = data.get("confirm_password")
 
-    if not isinstance(old_password, str) or not isinstance(new_password, str):
+    if not all(isinstance(value, str) and 0 < len(value) <= 4096
+               for value in (old_password, new_password, confirmation)):
         return JsonResponse(
             {"error": "Old and new passwords are required"},
             status=400,
         )
 
-    user = request.user
-
-    # Verify the current password
-    if not user.check_password(old_password):
-        return JsonResponse(
-            {"error": "Current password is incorrect"},
-            status=400,
-        )
-
-    # Validate the new password against Django's configured validators
-    try:
-        validate_password(new_password, user=user)
-    except ValidationError as error:
-        return JsonResponse(
-            {
-                "error": "Password validation failed",
-                "details": error.messages,
-            },
-            status=400,
-        )
-
-    # Hash and save the new password
-    user.set_password(new_password)
-    user.save(update_fields=["password"])
+    if new_password != confirmation:
+        return JsonResponse({"error": "Passwords do not match"}, status=400)
+    with transaction.atomic():
+        user = get_user_model().objects.select_for_update().get(pk=request.user.pk)
+        if not user.check_password(old_password):
+            return JsonResponse({"error": "Current password is incorrect"}, status=400)
+        try:
+            validate_password(new_password, user=user)
+        except ValidationError as error:
+            return JsonResponse({"error": "Password validation failed",
+                                 "codes": [item.code for item in error.error_list]}, status=400)
+        user.set_password(new_password)
+        user.save(update_fields=["password"])
 
     # Keep the current session authenticated after changing password
-    from django.contrib.auth import update_session_auth_hash
     update_session_auth_hash(request, user)
 
     return JsonResponse({
@@ -307,6 +322,9 @@ def register_view(request):
     # 7. Create the user
     try:
         with transaction.atomic():
+            lock_account_email_writes()
+            if User.objects.filter(email__iexact=email).exists():
+                return JsonResponse({"error": "Email already exists"}, status=400)
             user = User.objects.create_user(
                 username=username,
                 email=email,

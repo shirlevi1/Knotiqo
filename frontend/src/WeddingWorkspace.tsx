@@ -2,13 +2,14 @@
 import { useEffect, useRef, useState } from "react";
 import CreateWedding from "./CreateWedding";
 import BudgetAssistant from "./components/BudgetAssistant";
-import CoupleNamesEditor from "./components/CoupleNamesEditor";
-import PartnerInvitation from "./components/PartnerInvitation";
+import WorkspaceSidebar from "./components/WorkspaceSidebar";
+import { ProfileSettings, SecuritySettings, WeddingSettings } from "./components/WorkspaceSettings";
 import WeddingCoverEditor from "./components/WeddingCoverEditor";
 import VenuesPage from "./VenuesPage";
 import GuestsPage from "./GuestsPage";
 import { getWeddings, WeddingApiError, type CoupleNames, type WeddingDetails } from "./api/weddings";
 import "./WeddingWorkspace.css";
+import "./WorkspaceShell.css";
 
 type State =
     | { status: "loading" }
@@ -82,9 +83,8 @@ function focusBudget(panel: HTMLDivElement | null) {
     details.scrollIntoView?.({ block: "nearest" });
 }
 
-function WeddingHomepage({ wedding, weddings, onSelect, onRefresh, onSaveNames, onSaveCover }: {
-    wedding: WeddingDetails; weddings: WeddingDetails[]; onSelect: (id: number) => void;
-    onRefresh: () => void; onSaveNames: (names: CoupleNames) => void; onSaveCover: (url: string | null) => void;
+function WeddingHomepage({ wedding, onSaveCover }: {
+    wedding: WeddingDetails; onSaveCover: (url: string | null) => void;
 }) {
     const budget = useRef<HTMLDivElement>(null);
     const [budgetWedding, setBudgetWedding] = useState<number | null>(null);
@@ -147,20 +147,9 @@ function WeddingHomepage({ wedding, weddings, onSelect, onRefresh, onSaveNames, 
             <section id="workspace-settings" className="workspace-settings" aria-labelledby="workspace-settings-title">
                 <header className="workspace-section-heading">
                     <h2 id="workspace-settings-title">פרטי החתונה והזוג</h2>
-                    <button className="ui-button ui-button--text" type="button" onClick={onRefresh}>רענון פרטי החתונה</button>
                 </header>
                 <div className="workspace-settings-grid">
-                    <div>
-                        {weddings.length > 1 ? (
-                            <label className="ui-field">בחירת חתונה
-                                <select className="ui-input" value={wedding.id}
-                                    onChange={(event) => onSelect(Number(event.target.value))}>
-                                    {weddings.map(({ id, name }) => <option value={id} key={id}>{name}</option>)}
-                                </select>
-                            </label>
-                        ) : null}
-                        <CoupleNamesEditor key={wedding.id} weddingId={wedding.id} names={wedding} onSaved={onSaveNames} />
-                    </div>
+                    <div><h3>שם החתונה</h3><bdi>{wedding.name}</bdi></div>
                     <div className="workspace-date-summary">
                         <h3>תאריך החתונה</h3>
                         <WeddingDate date={wedding.wedding_date} />
@@ -181,11 +170,12 @@ function WeddingHomepage({ wedding, weddings, onSelect, onRefresh, onSaveNames, 
                         </ul>
                     </div>
                 </div>
-                {wedding.memberships.length < 2 && <PartnerInvitation key={wedding.id} weddingId={wedding.id} />}
             </section>
         </div>
     );
 }
+
+const weddingRoute = /^#\/weddings\/(\d+)\/(venues(?:\/compare)?|guests|budget|settings)$/;
 
 export default function WeddingWorkspace({ preferredWeddingId }: { preferredWeddingId?: number }) {
     const [state, setState] = useState<State>({ status: "loading" });
@@ -194,10 +184,16 @@ export default function WeddingWorkspace({ preferredWeddingId }: { preferredWedd
     const [selection, setSelection] = useState<{ id: number; preferred?: number } | null>(null);
 
     useEffect(() => {
-        const navigate = () => setHash(window.location.hash);
+        const navigate = () => {
+            const next = window.location.hash;
+            const route = weddingRoute.exec(next);
+            if (route) setSelection({ id: Number(route[1]), preferred: preferredWeddingId });
+            setHash(next);
+        };
+        navigate();
         window.addEventListener("hashchange", navigate);
         return () => window.removeEventListener("hashchange", navigate);
-    }, []);
+    }, [preferredWeddingId]);
 
     useEffect(() => {
         const refresh = () => setAttempt((value) => value + 1);
@@ -239,72 +235,86 @@ export default function WeddingWorkspace({ preferredWeddingId }: { preferredWedd
     const weddings = state.status === "ready" ? state.weddings : [];
     const selectedId = selection?.preferred === preferredWeddingId ? selection?.id : undefined;
     const activeWedding = weddings.find(({ id }) => id === (selectedId ?? preferredWeddingId)) ?? weddings[0];
-    const workspaceRoute = /^#\/weddings\/(\d+)\/(venues(?:\/compare)?|guests)$/.exec(hash);
+    const workspaceRoute = weddingRoute.exec(hash);
     const routeWedding = workspaceRoute ? weddings.find(({ id }) => id === Number(workspaceRoute[1])) : undefined;
 
-    function applyNames(weddingId: number, names: CoupleNames) {
+    function applyDetails(weddingId: number, updates: Partial<Pick<WeddingDetails, keyof CoupleNames | "wedding_date" | "cover_image_url">>) {
         setState((current) => current.status === "ready" ? {
             ...current,
-            weddings: current.weddings.map((wedding) => wedding.id === weddingId ? { ...wedding, ...names } : wedding),
+            weddings: current.weddings.map((wedding) => wedding.id === weddingId ? { ...wedding, ...updates } : wedding),
         } : current);
         setAttempt((value) => value + 1);
     }
 
-    function applyCover(weddingId: number, url: string | null) {
-        setState((current) => current.status === "ready" ? {
-            ...current,
-            weddings: current.weddings.map((wedding) =>
-                wedding.id === weddingId ? { ...wedding, cover_image_url: url } : wedding),
-        } : current);
-        setAttempt((value) => value + 1);
+    function selectWedding(id: number) {
+        setSelection({ id, preferred: preferredWeddingId });
+        if (workspaceRoute) window.location.hash = `#/weddings/${id}/${workspaceRoute[2]}`;
     }
 
-    if (workspaceRoute && state.status === "ready") {
-        return routeWedding
-            ? workspaceRoute[2] === "guests"
-                ? <GuestsPage weddingId={routeWedding.id} weddingName={routeWedding.name} />
-                : <VenuesPage key={hash} weddingId={routeWedding.id} weddingName={routeWedding.name}
-                    initialComparison={workspaceRoute[2] === "venues/compare"} />
-            : <div className="ui-panel ui-state" dir="rtl">
+    function renderPage() {
+        if (hash === "#/account/profile") return <ProfileSettings />;
+        if (hash === "#/account/security") return <SecuritySettings />;
+
+        if (workspaceRoute && state.status === "ready") {
+            if (!routeWedding) return <div className="ui-panel ui-state">
                 <p className="ui-error" role="alert">החתונה אינה זמינה לחשבון הזה.</p>
                 <a className="ui-button ui-button--secondary" href="#workspace">חזרה למרחב החתונה</a>
             </div>;
-    }
-
-    if (!activeWedding) {
-        if (state.status === "loading") {
-            return <p className="ui-panel ui-state ui-status ui-status--loading" role="status">טוענים את המרחב המשותף שלכם...</p>;
+            switch (workspaceRoute[2]) {
+                case "settings":
+                    return <WeddingSettings key={routeWedding.id} wedding={routeWedding}
+                        onSaveNames={(names) => applyDetails(routeWedding.id, names)}
+                        onSaveDate={(date) => applyDetails(routeWedding.id, { wedding_date: date })} />;
+                case "budget":
+                    return <section className="atelier-settings" key={routeWedding.id}>
+                        <h1>עוזר התקציב</h1><BudgetAssistant weddingId={routeWedding.id} initiallyOpen />
+                    </section>;
+                case "guests":
+                    return <GuestsPage key={routeWedding.id} weddingId={routeWedding.id} weddingName={routeWedding.name} />;
+                default:
+                    return <VenuesPage key={hash} weddingId={routeWedding.id} weddingName={routeWedding.name}
+                        initialComparison={workspaceRoute[2] === "venues/compare"} />;
+            }
         }
 
-        if (state.status === "error") {
-            return (
-                <div className="ui-panel ui-state">
-                    <p className="ui-error" role="alert">
-                        {state.message}
-                    </p>
-                    <button
-                        className="ui-button"
-                        type="button"
-                        onClick={() => {
-                            setState({ status: "loading" });
-                            setAttempt((value) => value + 1);
-                        }}
-                    >
-                        טעינה מחדש
-                    </button>
-                </div>
-            );
+        if (!activeWedding) {
+            if (state.status === "loading") {
+                return <p className="ui-panel ui-state ui-status ui-status--loading" role="status">טוענים את המרחב המשותף שלכם...</p>;
+            }
+
+            if (state.status === "error") {
+                return (
+                    <div className="ui-panel ui-state">
+                        <p className="ui-error" role="alert">
+                            {state.message}
+                        </p>
+                        <button
+                            className="ui-button"
+                            type="button"
+                            onClick={() => {
+                                setState({ status: "loading" });
+                                setAttempt((value) => value + 1);
+                            }}
+                        >
+                            טעינה מחדש
+                        </button>
+                    </div>
+                );
+            }
+
+            return <CreateWedding onCreated={() => {
+                setState({ status: "loading" });
+                setAttempt((value) => value + 1);
+            }} />;
         }
 
-        return <CreateWedding onCreated={() => {
-            setState({ status: "loading" });
-            setAttempt((value) => value + 1);
-        }} />;
+        return <WeddingHomepage wedding={activeWedding}
+            onSaveCover={(url) => applyDetails(activeWedding.id, { cover_image_url: url })} />;
     }
 
-    return <WeddingHomepage wedding={activeWedding} weddings={weddings}
-        onSelect={(id) => setSelection({ id, preferred: preferredWeddingId })}
-        onRefresh={() => setAttempt((value) => value + 1)}
-        onSaveNames={(names) => applyNames(activeWedding.id, names)}
-        onSaveCover={(url) => applyCover(activeWedding.id, url)} />;
+    return <div className="workspace-shell" dir="rtl">
+        <WorkspaceSidebar hash={hash} weddings={weddings} weddingId={(routeWedding ?? activeWedding)?.id}
+            onSelect={selectWedding} />
+        <div className="workspace-content">{renderPage()}</div>
+    </div>;
 }

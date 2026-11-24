@@ -130,7 +130,7 @@ async function csrfForWedding(options: RequestInit) {
     return token;
 }
 
-async function writeWedding(url: string, method: "POST" | "PUT", input: CoupleNames, signal?: AbortSignal) {
+async function writeWedding(url: string, method: "POST" | "PUT" | "PATCH", input: CoupleNames | Pick<Wedding, "wedding_date">, signal?: AbortSignal) {
     const options = { credentials: "same-origin", signal } as const;
     const token = await csrfForWedding(options);
     const response = await fetch(url, {
@@ -180,4 +180,12 @@ export async function updateCoupleNames(weddingId: number, input: CoupleNames, s
     const { data } = await writeWedding(`/api/weddings/${weddingId}/couple-names/`, "PUT", input, signal);
     if (!isCoupleNames(data)) throw new WeddingApiError("לא ניתן לאשר ששמות הזוג נשמרו. רעננו את הדף.");
     return { creator_display_name: data.creator_display_name, partner_display_name: data.partner_display_name };
+}
+
+export async function updateWeddingDate(id: number, date: string | null, signal: AbortSignal) {
+    const { data } = await writeWedding(`/api/weddings/${id}/`, "PATCH", { wedding_date: date }, signal);
+    if (typeof data !== "object" || data === null || !("wedding_date" in data) || data.wedding_date !== date) {
+        throw new WeddingApiError("לא ניתן לאשר שהתאריך נשמר. רעננו את הדף.");
+    }
+    return date;
 }

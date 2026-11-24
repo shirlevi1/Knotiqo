@@ -6,15 +6,15 @@
 .app-header.app-header--workspace { padding: 3px clamp(12px, 2.5vw, 24px); border-radius: 15px; }
 .app-header--workspace .wordmark { font-size: clamp(27px, 3vw, 33px); line-height: 1; }
 .app-header--workspace .ui-button { min-block-size: 44px; }
-.welcome-page:has(> :is(.wedding-workspace, .guests-page)) > .app-header {
+.welcome-page:has(> :is(.wedding-workspace, .guests-page, .workspace-shell)) > .app-header {
     background: #354c60;
     color: #fff;
     border-color: #354c60;
     border-radius: 10px;
     box-shadow: none;
 }
-.welcome-page:has(> :is(.wedding-workspace, .guests-page)) > .app-header :is(.wordmark, .ui-button) { color: inherit; }
-.welcome-page:has(> :is(.wedding-workspace, .guests-page)) > .app-header :focus-visible { outline-color: #dce9f2; }
+.welcome-page:has(> :is(.wedding-workspace, .guests-page, .workspace-shell)) > .app-header :is(.wordmark, .ui-button) { color: inherit; }
+.welcome-page:has(> :is(.wedding-workspace, .guests-page, .workspace-shell)) > .app-header :focus-visible { outline-color: #dce9f2; }
 
 .wedding-workspace {
     --atelier-paper: #f6f8fa;

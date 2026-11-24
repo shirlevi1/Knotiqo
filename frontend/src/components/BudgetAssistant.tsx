@@ -53,7 +53,7 @@ function readBudgetInput(form: HTMLFormElement) {
     return { input, errors };
 }
 
-export default function BudgetAssistant({ weddingId }: { weddingId: number }) {
+export default function BudgetAssistant({ weddingId, initiallyOpen }: { weddingId: number; initiallyOpen?: boolean }) {
     const id = useId();
     const [state, setState] = useState<State>({ status: "idle" });
     const request = useRef<AbortController | null>(null);
@@ -95,7 +95,7 @@ export default function BudgetAssistant({ weddingId }: { weddingId: number }) {
     const budget = result?.budget_analysis;
 
     return (
-        <details className="budget-assistant ui-panel" dir="rtl">
+        <details className="budget-assistant ui-panel" dir="rtl" open={initiallyOpen}>
             <summary>עוזר התקציב החכם</summary>
             <form noValidate onSubmit={submit} aria-busy={loading}
                 onInput={() => {

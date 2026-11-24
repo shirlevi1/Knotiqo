@@ -12,6 +12,7 @@ from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.cache import never_cache
 from rest_framework.exceptions import ValidationError as DRFValidationError
+from rest_framework import serializers as drf_serializers
 
 from .models import Wedding
 from .covers import CoverError, cover_url, normalize_cover, replace_cover
@@ -36,10 +37,21 @@ def my_weddings(request):
 
 
 @never_cache
-@api_view(["GET"])
+@api_view(["GET", "PATCH"])
 @authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def wedding_details(request, wedding_id):
+    if request.method == "PATCH":
+        scoped = weddings_for_user(user=request.user).filter(pk=wedding_id)
+        if not scoped.exists():
+            raise Http404()
+        if (not isinstance(request.data, dict) or set(request.data) != {"wedding_date"}
+                or request.data["wedding_date"] is not None and not isinstance(request.data["wedding_date"], str)):
+            raise DRFValidationError({"wedding_date": ["Only an ISO date or null is accepted."]})
+        date = drf_serializers.DateField(allow_null=True).run_validation(request.data["wedding_date"])
+        if not scoped.update(wedding_date=date):
+            raise Http404()
+        return Response({"wedding_date": date.isoformat() if date else None})
     wedding = wedding_details_for_user(user=request.user, wedding_id=wedding_id)
     return Response(WeddingDetailsSerializer(wedding).data)
 
@@ -88,6 +100,8 @@ def wedding_cover(request, wedding_id):
 @authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def wedding_couple_names(request, wedding_id):
+    if not weddings_for_user(user=request.user).filter(pk=wedding_id).exists():
+        raise Http404()
     serializer = CoupleNamesSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     update_couple_names(user=request.user, wedding_id=wedding_id, **serializer.validated_data)
