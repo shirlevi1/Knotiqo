@@ -189,6 +189,13 @@ test("loads the existing shared workspace with both members and absent or blank 
     });
     assert.equal(container.querySelector(".workspace-hero h1").textContent, "Wedding 2");
     assert.ok(container.querySelector('a[href="#/weddings/2/venues/compare"]'));
+    const planning = container.querySelector(".workspace-planning");
+    const cards = [...planning.querySelectorAll(".workspace-tools > li")];
+    assert.equal(cards.length, 4);
+    assert.equal(cards[3].querySelector("h3").textContent, "רשימת המוזמנים");
+    assert.match(cards[3].querySelector("a").textContent, /ניהול מוזמנים/);
+    assert.equal(cards[3].querySelector("a").getAttribute("href"), "#/weddings/2/guests");
+    assert.equal(planning.querySelector("header a[href$='/guests']"), null);
     const budgetButton = container.querySelector(".workspace-tools button");
     await act(() => budgetButton.click());
     assert.equal(container.querySelector(".budget-assistant").open, true);

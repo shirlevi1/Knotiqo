@@ -6,6 +6,7 @@ import CoupleNamesEditor from "./components/CoupleNamesEditor";
 import PartnerInvitation from "./components/PartnerInvitation";
 import WeddingCoverEditor from "./components/WeddingCoverEditor";
 import VenuesPage from "./VenuesPage";
+import GuestsPage from "./GuestsPage";
 import { getWeddings, WeddingApiError, type CoupleNames, type WeddingDetails } from "./api/weddings";
 import "./WeddingWorkspace.css";
 
@@ -21,13 +22,17 @@ function WeddingDate({ date }: { date: string | null }) {
     return date ? <time dateTime={date}>{weddingDate.format(new Date(`${date}T00:00:00Z`))}</time> : "התאריך טרם נקבע";
 }
 
-function AtelierIllustration({ kind }: { kind: "planning" | "comparison" | "budget" }) {
+function AtelierIllustration({ kind }: { kind: "planning" | "comparison" | "budget" | "guests" }) {
     return (
         <svg className="atelier-illustration" viewBox="0 0 40 40" fill="none" stroke="currentColor"
             strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             {kind === "planning" && <path d="M6 35h28M9 35V17a11 11 0 0 1 22 0v18M14 35V17a6 6 0 0 1 12 0v18M9 23h5m12 0h5" />}
             {kind === "comparison" && <path d="M20 6v27m-7 1h14M8 11h24M9 11 4 24h10L9 11Zm22 0-5 13h10l-5-13ZM4 24a5 5 0 0 0 10 0m12 0a5 5 0 0 0 10 0" />}
             {kind === "budget" && <path d="M10 5h20a3 3 0 0 1 3 3v24a3 3 0 0 1-3 3H10a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3Zm2 6h16v6H12zm1 12h2m4 0h2m4 0h2m-14 6h2m4 0h2m4 0h2" />}
+            {kind === "guests" && <>
+                <circle cx="15" cy="12" r="5" /><circle cx="28" cy="14" r="4" />
+                <path d="M5 32v-3a8 8 0 0 1 8-8h4a8 8 0 0 1 8 8v3H5zm24 0h6v-3a7 7 0 0 0-7-7h-2" />
+            </>}
         </svg>
     );
 }
@@ -125,6 +130,14 @@ function WeddingHomepage({ wedding, weddings, onSelect, onRefresh, onSaveNames, 
                         <button className="workspace-tool-link" type="button" onClick={openBudget}>
                             פתיחת עוזר התקציב <span aria-hidden="true">↓</span>
                         </button>
+                    </li>
+                    <li>
+                        <AtelierIllustration kind="guests" />
+                        <h3>רשימת המוזמנים</h3>
+                        <p>נהלו מוזמנים ומשפחות, עקבו אחר הכמויות וייבאו רשימות מ־Excel.</p>
+                        <a className="workspace-tool-link" href={`#/weddings/${wedding.id}/guests`}>
+                            ניהול מוזמנים <span aria-hidden="true">←</span>
+                        </a>
                     </li>
                 </ul>
                 <div className="workspace-budget" ref={budget} hidden={!budgetVisible}>
@@ -226,8 +239,8 @@ export default function WeddingWorkspace({ preferredWeddingId }: { preferredWedd
     const weddings = state.status === "ready" ? state.weddings : [];
     const selectedId = selection?.preferred === preferredWeddingId ? selection?.id : undefined;
     const activeWedding = weddings.find(({ id }) => id === (selectedId ?? preferredWeddingId)) ?? weddings[0];
-    const venueRoute = /^#\/weddings\/(\d+)\/venues(?:\/(compare))?$/.exec(hash);
-    const venueWedding = venueRoute ? weddings.find(({ id }) => id === Number(venueRoute[1])) : undefined;
+    const workspaceRoute = /^#\/weddings\/(\d+)\/(venues(?:\/compare)?|guests)$/.exec(hash);
+    const routeWedding = workspaceRoute ? weddings.find(({ id }) => id === Number(workspaceRoute[1])) : undefined;
 
     function applyNames(weddingId: number, names: CoupleNames) {
         setState((current) => current.status === "ready" ? {
@@ -246,10 +259,12 @@ export default function WeddingWorkspace({ preferredWeddingId }: { preferredWedd
         setAttempt((value) => value + 1);
     }
 
-    if (venueRoute && state.status === "ready") {
-        return venueWedding
-            ? <VenuesPage key={hash} weddingId={venueWedding.id} weddingName={venueWedding.name}
-                initialComparison={venueRoute[2] === "compare"} />
+    if (workspaceRoute && state.status === "ready") {
+        return routeWedding
+            ? workspaceRoute[2] === "guests"
+                ? <GuestsPage weddingId={routeWedding.id} weddingName={routeWedding.name} />
+                : <VenuesPage key={hash} weddingId={routeWedding.id} weddingName={routeWedding.name}
+                    initialComparison={workspaceRoute[2] === "venues/compare"} />
             : <div className="ui-panel ui-state" dir="rtl">
                 <p className="ui-error" role="alert">החתונה אינה זמינה לחשבון הזה.</p>
                 <a className="ui-button ui-button--secondary" href="#workspace">חזרה למרחב החתונה</a>
