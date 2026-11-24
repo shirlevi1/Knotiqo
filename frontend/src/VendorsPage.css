@@ -1,0 +1,44 @@
+.vendors-page { display: grid; gap: var(--space-4); min-width: 0; }
+.vendors-page :is(h1,h2,h3,h4,p,dl,dd) { margin: 0; }
+.vendors-page h1 { font-size: clamp(2rem, 4vw, 3rem); }
+.vendors-page h2 { font-size: clamp(1.4rem, 2vw, 1.85rem); }
+.vendors-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+.vendors-header p { color: var(--color-text-muted); }
+.vendors-panel { display: grid; gap: var(--space-3); min-width: 0; padding: clamp(12px, 2vw, 24px); }
+.vendors-page .budget-metrics dd { font-weight: 700; overflow-wrap: anywhere; }
+.vendors-actions, .vendors-contact { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.vendors-contact, .vendors-copy { overflow-wrap: anywhere; }
+.vendors-form, .vendors-filters {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 168px), 1fr));
+    gap: 12px;
+    align-items: end;
+}
+.vendors-form { border: 0; margin: 0; padding: 0; min-inline-size: 0; }
+.vendors-form > *, .vendors-filters > * { min-width: 0; }
+.vendors-page .ui-input { width: 100%; }
+.vendors-notes { grid-column: 1 / -1; }
+.vendors-table { width: 100%; border-collapse: collapse; text-align: start; table-layout: fixed; }
+.vendors-table :is(td, th) { padding: 10px 6px; border-block-end: 1px solid #dce4eb; text-align: start; overflow-wrap: anywhere; }
+.vendors-table thead th { background: #f0f4f7; color: #30485e; }
+.vendors-progress { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+.vendors-progress progress { width: 52px; height: 8px; accent-color: #557b95; }
+.vendors-mobile { display: none; }
+.vendors-page ul { list-style: none; padding: 0; margin: 0; }
+.vendors-quotes, .vendors-linked { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 12px; }
+.vendors-quotes li, .vendors-linked li, .vendors-mobile li {
+    display: grid;
+    align-content: start;
+    gap: 8px;
+    border: 1px solid #dce4eb;
+    padding: 12px;
+    border-radius: 10px;
+    background: #fbfcfd;
+    overflow-wrap: anywhere;
+}
+.vendors-mobile dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+:is(.vendors-editor, .vendors-detail):focus-visible { outline: 2px solid #58758e; outline-offset: 3px; }
+@container (max-width: 850px) {
+    .vendors-table { display: none; }
+    .vendors-mobile { display: grid; gap: 10px; }
+}

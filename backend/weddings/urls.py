@@ -4,6 +4,7 @@ from .budget_payments import ExpenseDetail, ExpenseList, PaymentDetail, PaymentL
 from .guests import GuestDetail, GuestList
 from .guest_exports import GuestExport, GuestTemplate
 from .guest_import_views import guest_import_confirm, guest_import_preview, guest_import_upload
+from .vendors import VendorCommitmentDetail, VendorCommitments, VendorDetail, VendorList, VendorQuoteDetail, VendorQuoteList
 from .views import accept_invitation, create_invitation, my_weddings, validate_invitation, wedding_couple_names, wedding_cover, wedding_details
 
 invitation_urlpatterns = [
@@ -25,6 +26,13 @@ urlpatterns = [
     path("<int:wedding_id>/budget/expenses/<int:expense_id>/payments/", PaymentList.as_view(), name="budget-payment-list"),
     path("<int:wedding_id>/budget/expenses/<int:expense_id>/payments/<int:payment_id>/",
          PaymentDetail.as_view(), name="budget-payment-detail"),
+    path("<int:wedding_id>/vendors/", VendorList.as_view(), name="wedding-vendors"),
+    path("<int:wedding_id>/vendors/<int:vendor_id>/", VendorDetail.as_view(), name="wedding-vendor"),
+    path("<int:wedding_id>/vendors/<int:vendor_id>/quotes/", VendorQuoteList.as_view(), name="wedding-vendor-quotes"),
+    path("<int:wedding_id>/vendors/<int:vendor_id>/quotes/<int:quote_id>/", VendorQuoteDetail.as_view(), name="wedding-vendor-quote"),
+    path("<int:wedding_id>/vendors/<int:vendor_id>/commitments/", VendorCommitments.as_view(), name="wedding-vendor-commitments"),
+    path("<int:wedding_id>/vendors/<int:vendor_id>/commitments/<int:expense_id>/", VendorCommitmentDetail.as_view(),
+         name="wedding-vendor-commitment"),
     path("<int:wedding_id>/guests/", GuestList.as_view(), name="guest-list"),
     path("<int:wedding_id>/guests/template/", GuestTemplate.as_view(), name="guest-template"),
     path("<int:wedding_id>/guests/export/", GuestExport.as_view(), name="guest-export"),

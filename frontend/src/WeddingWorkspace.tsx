@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import CreateWedding from "./CreateWedding";
 import BudgetPage from "./BudgetPage";
+import VendorsPage from "./VendorsPage";
 import WorkspaceSidebar from "./components/WorkspaceSidebar";
 import { ProfileSettings, SecuritySettings, WeddingSettings } from "./components/WorkspaceSettings";
 import WeddingCoverEditor from "./components/WeddingCoverEditor";
@@ -151,7 +152,7 @@ function WeddingHomepage({ wedding, onSaveCover }: {
     );
 }
 
-const weddingRoute = /^#\/weddings\/(\d+)\/(venues(?:\/compare)?|guests|budget|settings)$/;
+const weddingRoute = /^#\/weddings\/(\d+)\/(venues(?:\/compare)?|guests|vendors|settings|budget(?:\/(new-expense|expenses\/\d+))?)$/;
 
 export default function WeddingWorkspace({ preferredWeddingId }: { preferredWeddingId?: number }) {
     const [state, setState] = useState<State>({ status: "loading" });
@@ -224,7 +225,7 @@ export default function WeddingWorkspace({ preferredWeddingId }: { preferredWedd
 
     function selectWedding(id: number) {
         setSelection({ id, preferred: preferredWeddingId });
-        if (workspaceRoute) window.location.hash = `#/weddings/${id}/${workspaceRoute[2]}`;
+        if (workspaceRoute) window.location.hash = `#/weddings/${id}/${workspaceRoute[3] ? "budget" : workspaceRoute[2]}`;
     }
 
     function renderPage() {
@@ -236,13 +237,17 @@ export default function WeddingWorkspace({ preferredWeddingId }: { preferredWedd
                 <p className="ui-error" role="alert">החתונה אינה זמינה לחשבון הזה.</p>
                 <a className="ui-button ui-button--secondary" href="#workspace">חזרה למרחב החתונה</a>
             </div>;
-            switch (workspaceRoute[2]) {
+            switch (workspaceRoute[3] ? "budget" : workspaceRoute[2]) {
                 case "settings":
                     return <WeddingSettings key={routeWedding.id} wedding={routeWedding}
                         onSaveNames={(names) => applyDetails(routeWedding.id, names)}
                         onSaveDate={(date) => applyDetails(routeWedding.id, { wedding_date: date })} />;
                 case "budget":
-                    return <BudgetPage key={routeWedding.id} weddingId={routeWedding.id} />;
+                    return <BudgetPage key={hash} weddingId={routeWedding.id}
+                        newExpense={workspaceRoute[3] === "new-expense"}
+                        expenseId={workspaceRoute[3]?.startsWith("expenses/") ? Number(workspaceRoute[3].slice(9)) : undefined} />;
+                case "vendors":
+                    return <VendorsPage key={routeWedding.id} weddingId={routeWedding.id} />;
                 case "guests":
                     return <GuestsPage key={routeWedding.id} weddingId={routeWedding.id} weddingName={routeWedding.name} />;
                 default:

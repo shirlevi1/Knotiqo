@@ -236,3 +236,88 @@ test("records and corrects a shared payment, shows schedule gaps and overdue bal
     assert.equal(container.querySelectorAll(".budget-timeline-group").length, 1);
     assert.match(container.querySelector(".budget-timeline-group").textContent, /מקדמה/);
 });
+
+test("manages wedding vendors, selects quotes, and confirms financial linking separately", async (t) => {
+    const vendorUrl = "/api/weddings/1/vendors/";
+    const quotesUrl = vendorUrl + "5/quotes/";
+    const finance = { currency: "ILS", as_of: "2027-06-15", wedding_date: null, expenses: [], vendor_totals: {},
+        totals: { committed_cost: "0.00", scheduled_amount: "0.00", paid_amount: "0.00", remaining_amount: "0.00",
+            upcoming_amount: "0.00", overdue_amount: "0.00" } };
+    const categories = [{ id: 2, name: "צילום", planned_amount: "900.00", estimated_cost: null, position: 0 }];
+    let vendors = [];
+    const mutations = [];
+    t.mock.method(globalThis, "fetch", async (url, options) => {
+        const response = common(url);
+        if (response) return response;
+        if (url === base) return Response.json({ ...snapshot, categories });
+        if (url.endsWith("/venues/")) return Response.json([]);
+        if (url === base + "expenses/") return Response.json(finance);
+        if (options.method === "GET") { assert.equal(url, vendorUrl); return Response.json(vendors); }
+        assert.equal(options.credentials, "same-origin");
+        assert.equal(options.headers["X-CSRFToken"], "budget-test");
+        const body = JSON.parse(options.body);
+        mutations.push({ url, body });
+        if (url === vendorUrl) vendors = [{ id: 5, ...body, quotes: [] }];
+        else if (url === vendorUrl + "5/") vendors[0] = { ...vendors[0], ...body };
+        else if (url === quotesUrl) vendors[0].quotes.push({ id: 6, ...body, amount: "100.25" });
+        else if (url === quotesUrl + "6/") Object.assign(vendors[0].quotes[0], body);
+        else {
+            assert.equal(url, vendorUrl + "5/commitments/");
+            assert.deepEqual(body, { quote_id: 6, category_id: 2, confirmed: true });
+            finance.expenses = [{ id: 7, category_id: 2, vendor_id: 5, source_quote_id: 6, venue_id: null, venue_name: null,
+                name: "צילום", supplier_name: "", committed_cost: "100.25", scheduled_amount: "0.00", paid_amount: "0.00",
+                remaining_amount: "100.25", schedule_difference: "100.25", schedule_status: "incomplete", payments: [] }];
+            finance.vendor_totals[5] = { committed_cost: "100.25", paid_amount: "0.00", remaining_amount: "100.25" };
+            Object.assign(finance.totals, finance.vendor_totals[5]);
+            return Response.json(finance, { status: 201 });
+        }
+        return Response.json(vendors);
+    });
+    window.history.replaceState(null, "", "/#/weddings/1/vendors");
+    await act(() => root.render(createElement(Workspace)));
+    assert.equal(container.querySelector(".atelier-sidebar [aria-current]").hash, "#/weddings/1/vendors");
+    assert.match(container.querySelector(".vendors-page").textContent, /עוד אין ספקים/);
+    const choose = async (text, selector = ".vendors-page") => {
+        const button = [...container.querySelectorAll(selector + " button")].find((node) => node.textContent === text);
+        assert.ok(button, text);
+        await act(() => button.click());
+    };
+    await choose("הוספת ספק");
+    let form = container.querySelector('[aria-label="הוספת ספק"]');
+    form.elements.name.value = "סטודיו";
+    form.elements.service_category.value = "צילום מותאם";
+    await act(() => form.requestSubmit());
+    assert.equal(mutations[0].body.service_category, "צילום מותאם");
+    assert.equal(container.querySelectorAll(".vendors-table tbody tr").length, 1);
+    assert.equal(container.querySelectorAll(".vendors-mobile > li").length, 1);
+    const picker = container.querySelector(".vendors-filters select");
+    await act(() => { picker.value = "מגנטים"; picker.dispatchEvent(new window.Event("change", { bubbles: true })); });
+    assert.match(container.querySelector(".vendors-page").textContent, /לא נמצאו ספקים/);
+    await choose("ניקוי מסננים");
+    await choose("פרטים", ".vendors-table");
+    await choose("עריכה");
+    form = container.querySelector('[aria-label="עריכת ספק"]');
+    form.elements.status.value = "shortlisted";
+    await act(() => form.requestSubmit());
+    await choose("הוספת הצעה");
+    form = container.querySelector('[aria-label="הוספת הצעה"]');
+    form.elements.title.value = "צילום";
+    form.elements.amount.value = "100.25";
+    await act(() => form.requestSubmit());
+    await choose("בחירת הצעה");
+    assert.deepEqual(mutations[3].body, { status: "selected" });
+    assert.equal(finance.expenses.length, 0);
+    await choose("יצירת התחייבות");
+    form = container.querySelector(".vendors-editor form");
+    form.elements.category_id.value = "2";
+    await act(() => form.requestSubmit());
+    assert.equal(mutations.length, 4);
+    form.querySelector('input[type="checkbox"]').checked = true;
+    await act(() => form.requestSubmit());
+    assert.match(container.querySelector(".vendors-table").textContent, /100\.25/);
+    assert.ok(container.querySelector('a[href="#/weddings/1/budget/expenses/7"]'));
+    await navigate("#/weddings/1/budget/new-expense");
+    assert.ok(container.querySelector('[aria-label="הוספת התחייבות"]'));
+    await navigate("#/weddings/1/budget/expenses/7");
+    assert.match(container.querySelector(".budget-commitments .budget-categories").textContent, /צילום/);
+});

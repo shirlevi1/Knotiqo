@@ -12,6 +12,7 @@ const items = [
     ["#workspace", "מרחב החתונה", "M3 11l9-8 9 8v9H3z M9 20v-6h6v6"],
     ["venues", "אולמות", "M4 21V11a8 8 0 0 1 16 0v10 M8 21V11a4 4 0 0 1 8 0v10 M2 21h20"],
     ["guests", "מוזמנים", "M14 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0 M2 21v-2a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v2z M19 4a4 4 0 0 1 0 7m1 3a5 5 0 0 1 2 4v3"],
+    ["vendors", "ספקים והוצאות", "M3 7h18v13H3z M8 7V4h8v3 M3 12h18 M10 12v2h4v-2"],
     ["budget", "תקציב החתונה", "M5 3h14v18H5z M8 6h8v4H8z M8 14h1m3 0h1m3 0h1m-9 3h1m3 0h1m3 0h1"],
     ["settings", "הגדרות החתונה", "M3 6h18v15H3z M7 3v6m10-6v6M3 11h18m-14 5h4"],
     ["#/account/profile", "הפרופיל שלי", "M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0 M4 21v-2a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v2z"],
@@ -29,6 +30,7 @@ function Links({ hash, weddings, weddingId, onSelect, onNavigate }: Props & { on
             if (!route.startsWith("#") && !weddingId) return null;
             const href = route.startsWith("#") ? route : `#/weddings/${weddingId}/${route}`;
             const active = hash === href || (route === "venues" && hash === href + "/compare")
+                || (route === "budget" && hash.startsWith(href + "/"))
                 || (route === "#workspace" && !hash.startsWith("#/"));
             return <li key={route} className={route.startsWith("#/account/") ? "atelier-account-link" : undefined}><a href={href} aria-current={active ? "page" : undefined} onClick={onNavigate} title={label}>
                 <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"

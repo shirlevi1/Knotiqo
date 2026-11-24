@@ -20,9 +20,11 @@ function Money({ value }: { value: string }) {
     return <bdi>{formatVenueMoney(value)}</bdi>;
 }
 
-export default function BudgetCommitments({ weddingId, categories }: { weddingId: number; categories: BudgetCategory[] }) {
+export default function BudgetCommitments({ weddingId, categories, newExpense, expenseId }: {
+    weddingId: number; categories: BudgetCategory[]; newExpense?: boolean; expenseId?: number;
+}) {
     const [data, setData] = useState<Commitments | null>(null);
-    const [editor, setEditor] = useState<Editor | null>(null);
+    const [editor, setEditor] = useState<Editor | null>(newExpense && categories.length ? { kind: "expense" } : null);
     const [removal, setRemoval] = useState<Removal | null>(null);
     const [error, setError] = useState("");
     const [notice, setNotice] = useState("");
@@ -33,6 +35,7 @@ export default function BudgetCommitments({ weddingId, categories }: { weddingId
     const [until, setUntil] = useState("");
     const [supplier, setSupplier] = useState("");
     const pending = useRef<AbortController | null>(null);
+    const section = useRef<HTMLElement>(null);
     const api = commitmentsApi(weddingId);
     const locked = busy || editor !== null || removal !== null;
     const invalidDates = Boolean(from && until && from > until);
@@ -48,6 +51,10 @@ export default function BudgetCommitments({ weddingId, categories }: { weddingId
     }, [weddingId, attempt]);
 
     useEffect(() => () => pending.current?.abort(), []);
+    const loaded = data !== null;
+    useEffect(() => {
+        if (loaded && (newExpense || expenseId !== undefined)) section.current?.scrollIntoView?.({ block: "start" });
+    }, [loaded, newExpense, expenseId]);
 
     async function save(action: (signal: AbortSignal) => Promise<Commitments>) {
         if (pending.current) return;
@@ -81,7 +88,8 @@ export default function BudgetCommitments({ weddingId, categories }: { weddingId
         setEditor(next);
     }
 
-    const entries = (data?.expenses ?? []).flatMap((expense) =>
+    const expenses = (data?.expenses ?? []).filter((expense) => expenseId === undefined || expense.id === expenseId);
+    const entries = expenses.flatMap((expense) =>
         expense.payments.map((payment) => ({ expense, payment }))).filter(({ expense, payment }) => {
         const needle = supplier.trim().toLocaleLowerCase();
         return (!status || (status === "outstanding" ? payment.status !== "paid" : payment.status === status))
@@ -91,7 +99,7 @@ export default function BudgetCommitments({ weddingId, categories }: { weddingId
     }).sort((a, b) => (a.payment.due_date ?? "9999-12-31").localeCompare(b.payment.due_date ?? "9999-12-31")
         || a.payment.id - b.payment.id);
 
-    return <section className="ui-panel budget-section budget-commitments" aria-labelledby="budget-commitments">
+    return <section ref={section} className="ui-panel budget-section budget-commitments" aria-labelledby="budget-commitments">
         <header className="budget-section-heading">
             <h2 id="budget-commitments">התחייבויות ותשלומים</h2>
             {data && <button className="ui-button ui-button--secondary" disabled={locked || !categories.length}
@@ -107,9 +115,10 @@ export default function BudgetCommitments({ weddingId, categories }: { weddingId
             <dl className="budget-metrics">{commitmentFields.map((field, index) =>
                 <div key={field}><dt>{totalsLabels[index]}</dt><dd><Money value={data.totals[field]} /></dd></div>)}</dl>
             {!categories.length && <p>הוסיפו קטגוריה כדי לשייך אליה התחייבות.</p>}
-            {data.expenses.length === 0 && categories.length > 0 && <p>עדיין אין התחייבויות שמורות.</p>}
-            {data.expenses.length > 0 && <ul className="budget-categories">
-                {data.expenses.map((expense) => <li key={expense.id}>
+            {expenseId !== undefined && <a href={`#/weddings/${weddingId}/budget`}>כל ההתחייבויות</a>}
+            {expenses.length === 0 && categories.length > 0 && <p>{expenseId === undefined ? "עדיין אין התחייבויות שמורות." : "ההתחייבות אינה זמינה."}</p>}
+            {expenses.length > 0 && <ul className="budget-categories">
+                {expenses.map((expense) => <li key={expense.id}>
                     <header><h3>{expense.name}</h3>
                         <p>{[categories.find(({ id }) => id === expense.category_id)?.name, expense.supplier_name,
                             expense.venue_name].filter(Boolean).join(" · ")}</p>

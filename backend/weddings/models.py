@@ -188,7 +188,56 @@ class BudgetCategory(models.Model):
             ),
         ]
 
+class WeddingVendor(models.Model):
+    class Status(models.TextChoices):
+        RESEARCHING = "researching", "Researching"
+        CONTACTED = "contacted", "Contacted"
+        QUOTE_RECEIVED = "quote_received", "Quote received"
+        SHORTLISTED = "shortlisted", "Shortlisted"
+        BOOKED = "booked", "Booked"
+        REJECTED = "rejected", "Rejected"
+        CANCELLED = "cancelled", "Cancelled"
+
+    wedding = models.ForeignKey(Wedding, on_delete=models.CASCADE, related_name="vendors")
+    budget_category = models.ForeignKey(BudgetCategory, on_delete=models.SET_NULL, null=True, blank=True)
+    name = models.CharField(max_length=150)
+    service_category = models.CharField(max_length=100)
+    contact_person = models.CharField(max_length=150, blank=True)
+    phone = models.CharField(max_length=32, blank=True)
+    email = models.EmailField(blank=True)
+    website = models.URLField(max_length=500, blank=True)
+    notes = models.TextField(max_length=4000, blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.RESEARCHING)
+
+    class Meta:
+        ordering = ["name", "pk"]
+
+
+class VendorQuote(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        SELECTED = "selected", "Selected"
+        REJECTED = "rejected", "Rejected"
+
+    vendor = models.ForeignKey(WeddingVendor, on_delete=models.CASCADE, related_name="quotes")
+    title = models.CharField(max_length=150)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    received_date = models.DateField(null=True, blank=True)
+    included_services = models.TextField(max_length=2000, blank=True)
+    excluded_services = models.TextField(max_length=2000, blank=True)
+    notes = models.TextField(max_length=4000, blank=True)
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.PENDING)
+
+    class Meta:
+        ordering = ["pk"]
+        constraints = [
+            models.CheckConstraint(condition=models.Q(amount__gte=0), name="vendor_quote_amount_nonnegative"),
+        ]
+
+
 class BudgetExpense(models.Model):
+    vendor = models.ForeignKey(WeddingVendor, on_delete=models.RESTRICT, null=True, blank=True, related_name="expenses")
+    source_quote = models.OneToOneField(VendorQuote, on_delete=models.SET_NULL, null=True, blank=True)
     category = models.ForeignKey(BudgetCategory, on_delete=models.RESTRICT, related_name="expenses")
     venue = models.ForeignKey("venues.Venue", on_delete=models.SET_NULL, null=True, blank=True)
     name = models.CharField(max_length=100)

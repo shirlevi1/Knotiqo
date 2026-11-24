@@ -56,6 +56,7 @@ def commitment_snapshot(wedding):
     today = timezone.localdate()
     expenses = BudgetExpense.objects.filter(category__budget__wedding=wedding).select_related("venue")
     rows = []
+    vendor_totals = {}
     committed = paid = scheduled = upcoming = overdue = ZERO
     for expense in expenses.prefetch_related("payments"):
         payments = []
@@ -81,6 +82,7 @@ def commitment_snapshot(wedding):
         cost = expense.committed_cost
         rows.append({
             "id": expense.pk, "category_id": expense.category_id, "venue_id": expense.venue_id,
+            "vendor_id": expense.vendor_id, "source_quote_id": expense.source_quote_id,
             "venue_name": expense.venue.name if expense.venue else None,
             "name": expense.name, "supplier_name": expense.supplier_name, "committed_cost": money(cost),
             "scheduled_amount": money(expense_scheduled), "paid_amount": money(expense_paid),
@@ -89,11 +91,21 @@ def commitment_snapshot(wedding):
             if expense_scheduled > cost else "complete",
             "payments": payments,
         })
+        if expense.vendor_id is not None:
+            totals = vendor_totals.setdefault(expense.vendor_id, {"committed_cost": ZERO, "paid_amount": ZERO,
+                                                                 "remaining_amount": ZERO})
+            totals["committed_cost"] += cost
+            totals["paid_amount"] += expense_paid
+            totals["remaining_amount"] += cost - expense_paid
         committed += cost
         paid += expense_paid
         scheduled += expense_scheduled
     return {
         "currency": "ILS", "as_of": today, "wedding_date": wedding.wedding_date, "expenses": rows,
+        "vendor_totals": {
+            vendor_id: {field: money(amount) for field, amount in totals.items()}
+            for vendor_id, totals in vendor_totals.items()
+        },
         "totals": {
             "committed_cost": money(committed), "scheduled_amount": money(scheduled),
             "paid_amount": money(paid), "remaining_amount": money(committed - paid),
