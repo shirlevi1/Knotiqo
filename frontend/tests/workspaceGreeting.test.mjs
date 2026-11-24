@@ -189,7 +189,7 @@ test("loads the existing shared workspace with both members and absent or blank 
     assert.match(settings.textContent, /יובל לוי/);
     assert.equal(settings.querySelector(".partner-invitation"), null);
     assert.equal(settings.querySelector(".couple-name-editor"), null);
-    assert.equal(container.querySelectorAll(".budget-assistant summary").length, 1);
+    assert.equal(container.querySelectorAll(".budget-assistant summary").length, 0);
     const select = container.querySelector(".atelier-sidebar select");
     assert.equal(select.options.length, 2);
     await act(() => {
@@ -205,9 +205,7 @@ test("loads the existing shared workspace with both members and absent or blank 
     assert.match(cards[3].querySelector("a").textContent, /ניהול מוזמנים/);
     assert.equal(cards[3].querySelector("a").getAttribute("href"), "#/weddings/2/guests");
     assert.equal(planning.querySelector("header a[href$='/guests']"), null);
-    const budgetButton = container.querySelector(".workspace-tools button");
-    await act(() => budgetButton.click());
-    assert.equal(container.querySelector(".budget-assistant").open, true);
+    assert.ok(cards[2].querySelector('a[href="#/weddings/2/budget"]'));
     assert.equal(container.querySelector('[role="alert"]'), null);
 });
 
@@ -310,6 +308,7 @@ test("sidebar preserves the wedding across account and settings routes and saves
             date = JSON.parse(options.body).wedding_date;
             return Response.json({ wedding_date: date });
         }
+        if (url === "/api/weddings/2/budget/") return Response.json({}, { status: 503 });
         assert.equal(url, "/api/weddings/?include=memberships");
         return Response.json([wedding(1, []), wedding(2, [], { wedding_date: date })]);
     });

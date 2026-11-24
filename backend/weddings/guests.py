@@ -81,6 +81,17 @@ class GuestSerializer(serializers.ModelSerializer):
         return instance
 
 
+def summarize_guests(guests):
+    summary = guests.order_by().aggregate(
+        records=Count("pk"), attendees=Sum("party_size", default=0),
+        unclassified_count=Sum("party_size", filter=Q(adult_count__isnull=True), default=0),
+        **{field: Sum(field, default=0) for field in GUEST_AGE_FIELDS},
+        **{side: Sum("party_size", filter=Q(side=side), default=0) for side in Guest.Side.values},
+    )
+    summary["unnamed_companions"] = summary["attendees"] - summary["records"]
+    return summary
+
+
 class GuestFilters(serializers.Serializer):
     search = serializers.CharField(max_length=150, allow_blank=True, required=False)
     side = serializers.ChoiceField(choices=Guest.Side.choices, required=False)
@@ -135,13 +146,7 @@ class GuestList(WeddingGuestView, ListCreateAPIView):
 
         page = self.paginate_queryset(guests)
         response = self.get_paginated_response(self.get_serializer(page, many=True).data)
-        summary = guests.order_by().aggregate(
-            records=Count("pk"), attendees=Sum("party_size", default=0),
-            unclassified_count=Sum("party_size", filter=Q(adult_count__isnull=True), default=0),
-            **{field: Sum(field, default=0) for field in GUEST_AGE_FIELDS},
-            **{side: Sum("party_size", filter=Q(side=side), default=0) for side in Guest.Side.values},
-        )
-        summary["unnamed_companions"] = summary["attendees"] - summary["records"]
+        summary = summarize_guests(guests)
         response.data["summary"] = summary
         return response
 

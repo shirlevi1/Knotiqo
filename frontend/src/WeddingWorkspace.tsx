@@ -1,7 +1,7 @@
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import CreateWedding from "./CreateWedding";
-import BudgetAssistant from "./components/BudgetAssistant";
+import BudgetPage from "./BudgetPage";
 import WorkspaceSidebar from "./components/WorkspaceSidebar";
 import { ProfileSettings, SecuritySettings, WeddingSettings } from "./components/WorkspaceSettings";
 import WeddingCoverEditor from "./components/WeddingCoverEditor";
@@ -75,32 +75,11 @@ function WorkspaceHero({ wedding, onSaveCover }: {
     );
 }
 
-function focusBudget(panel: HTMLDivElement | null) {
-    const details = panel?.querySelector("details");
-    if (!details) return;
-    details.open = true;
-    details.querySelector("summary")?.focus();
-    details.scrollIntoView?.({ block: "nearest" });
-}
-
 function WeddingHomepage({ wedding, onSaveCover }: {
     wedding: WeddingDetails; onSaveCover: (url: string | null) => void;
 }) {
-    const budget = useRef<HTMLDivElement>(null);
-    const [budgetWedding, setBudgetWedding] = useState<number | null>(null);
-    const budgetVisible = budgetWedding === wedding.id;
     const hasNames = wedding.creator_display_name.trim() || wedding.partner_display_name.trim();
     const base = `#/weddings/${wedding.id}/venues`;
-
-    useEffect(() => {
-        if (!budgetVisible) return;
-        focusBudget(budget.current);
-    }, [budgetVisible]);
-
-    function openBudget() {
-        if (budgetVisible) focusBudget(budget.current);
-        else setBudgetWedding(wedding.id);
-    }
 
     return (
         <div className="wedding-workspace" dir="rtl">
@@ -127,22 +106,19 @@ function WeddingHomepage({ wedding, onSaveCover }: {
                         <AtelierIllustration kind="budget" />
                         <h3>עוזר התקציב</h3>
                         <p>בדקו את העלויות וקבלו המלצה מעוזר התקציב החכם.</p>
-                        <button className="workspace-tool-link" type="button" onClick={openBudget}>
-                            פתיחת עוזר התקציב <span aria-hidden="true">↓</span>
-                        </button>
+                        <a className="workspace-tool-link" href={`#/weddings/${wedding.id}/budget`}>
+                            ניהול התקציב <span aria-hidden="true">←</span>
+                        </a>
                     </li>
                     <li>
                         <AtelierIllustration kind="guests" />
                         <h3>רשימת המוזמנים</h3>
-                        <p>נהלו מוזמנים ומשפחות, עקבו אחר הכמויות וייבאו רשימות מ־Excel.</p>
+                        <p>נהלו מוזמנים ומשפחות, עקבו אחר הכמויות וייבאו רשימות מ-Excel.</p>
                         <a className="workspace-tool-link" href={`#/weddings/${wedding.id}/guests`}>
                             ניהול מוזמנים <span aria-hidden="true">←</span>
                         </a>
                     </li>
                 </ul>
-                <div className="workspace-budget" ref={budget} hidden={!budgetVisible}>
-                    <BudgetAssistant key={wedding.id} weddingId={wedding.id} />
-                </div>
             </section>
             <section id="workspace-settings" className="workspace-settings" aria-labelledby="workspace-settings-title">
                 <header className="workspace-section-heading">
@@ -266,9 +242,7 @@ export default function WeddingWorkspace({ preferredWeddingId }: { preferredWedd
                         onSaveNames={(names) => applyDetails(routeWedding.id, names)}
                         onSaveDate={(date) => applyDetails(routeWedding.id, { wedding_date: date })} />;
                 case "budget":
-                    return <section className="atelier-settings" key={routeWedding.id}>
-                        <h1>עוזר התקציב</h1><BudgetAssistant weddingId={routeWedding.id} initiallyOpen />
-                    </section>;
+                    return <BudgetPage key={routeWedding.id} weddingId={routeWedding.id} />;
                 case "guests":
                     return <GuestsPage key={routeWedding.id} weddingId={routeWedding.id} weddingName={routeWedding.name} />;
                 default:

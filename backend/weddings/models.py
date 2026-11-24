@@ -156,3 +156,78 @@ class WeddingInvitation(models.Model):
         return f"{self.invited_email} - {self.wedding.name} ({self.status})"
 
 
+
+class WeddingBudget(models.Model):
+    wedding = models.OneToOneField(Wedding, on_delete=models.CASCADE, related_name="budget")
+    total_budget = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(condition=models.Q(total_budget__gte=0), name="budget_total_nonnegative"),
+        ]
+
+
+class BudgetCategory(models.Model):
+    budget = models.ForeignKey(WeddingBudget, on_delete=models.CASCADE, related_name="categories")
+    name = models.CharField(max_length=100)
+    planned_amount = models.DecimalField(max_digits=12, decimal_places=2)
+    estimated_cost = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    position = models.PositiveSmallIntegerField()
+
+    class Meta:
+        ordering = ["position", "pk"]
+        constraints = [
+            models.CheckConstraint(condition=models.Q(planned_amount__gte=0), name="budget_planned_nonnegative"),
+            models.CheckConstraint(
+                condition=models.Q(estimated_cost__isnull=True) | models.Q(estimated_cost__gte=0),
+                name="budget_estimate_nonnegative",
+            ),
+            models.UniqueConstraint(
+                fields=["budget", "position"], name="budget_category_position_unique",
+                deferrable=models.Deferrable.DEFERRED,
+            ),
+        ]
+
+class BudgetExpense(models.Model):
+    category = models.ForeignKey(BudgetCategory, on_delete=models.RESTRICT, related_name="expenses")
+    venue = models.ForeignKey("venues.Venue", on_delete=models.SET_NULL, null=True, blank=True)
+    name = models.CharField(max_length=100)
+    supplier_name = models.CharField(max_length=100, blank=True)
+    committed_cost = models.DecimalField(max_digits=12, decimal_places=2)
+
+    class Meta:
+        ordering = ["pk"]
+        constraints = [
+            models.CheckConstraint(condition=models.Q(committed_cost__gte=0), name="expense_cost_nonnegative"),
+        ]
+
+
+class ScheduledBudgetPayment(models.Model):
+    class Phase(models.TextChoices):
+        DEPOSIT = "deposit", "Deposit"
+        BEFORE = "before", "Before wedding"
+        ON_DAY = "on_day", "On wedding day"
+        AFTER = "after", "After wedding"
+        OTHER = "other", "Other"
+
+    expense = models.ForeignKey(BudgetExpense, on_delete=models.CASCADE, related_name="payments")
+    phase = models.CharField(max_length=10, choices=Phase.choices)
+    due_date = models.DateField(null=True, blank=True)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    notes = models.CharField(max_length=500, blank=True)
+    paid_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    paid_date = models.DateField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["due_date", "pk"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(amount__gt=0, paid_amount__gte=0, paid_amount__lte=models.F("amount")),
+                name="payment_amounts_consistent",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(paid_amount=0, paid_date__isnull=True)
+                | models.Q(paid_amount__gt=0, paid_date__isnull=False),
+                name="payment_paid_date_consistent",
+            ),
+        ]

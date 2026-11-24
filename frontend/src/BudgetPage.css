@@ -1,0 +1,36 @@
+.budget-page { display: grid; gap: var(--space-4); }
+.budget-page h1, .budget-page h2, .budget-page h3, .budget-page p, .budget-page dl { margin: 0; }
+.budget-page h1 { font-size: clamp(2rem, 4vw, 3rem); }
+.budget-page h2 { font-size: clamp(1.35rem, 2vw, 1.75rem); }
+.budget-page p:not(.ui-error), .budget-page dt { color: var(--color-text-muted); }
+.budget-section { display: grid; gap: var(--space-3); min-width: 0; padding: clamp(12px, 2vw, 24px); }
+.budget-section-heading, .budget-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.budget-section-heading { justify-content: space-between; }
+.budget-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 135px), 1fr)); gap: 10px; }
+.budget-metrics > div { background: #f4f7fa; border: 1px solid #dce4eb; border-radius: 10px; padding: 12px; min-width: 0; }
+.budget-page dd { margin: 0; font-weight: 700; overflow-wrap: anywhere; }
+.budget-plan-fields { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.budget-plan-fields .ui-field { flex: 0 1 245px; min-width: 0; }
+.budget-plan-fields .ui-input { width: 100%; }
+.budget-categories { margin: 0; padding: 0; list-style: none; }
+.budget-categories > li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto;
+    align-items: center;
+    gap: 12px;
+    padding-block: 12px;
+    border-block-end: 1px solid #dce4eb;
+}
+.budget-categories h3 { overflow-wrap: anywhere; font-size: 1.12rem; }
+.budget-categories dl { display: flex; flex-wrap: wrap; gap: 8px 20px; }
+.budget-confirm { grid-column: 1 / -1; }
+.budget-status { padding-inline-start: 4px; }
+@container (max-width: 690px) {
+    .budget-categories > li { grid-template-columns: minmax(0, 1fr); }
+}
+
+.budget-commitments form { display: grid; gap: 12px; padding: 16px; border: 1px solid #dce4eb; border-radius: 10px; }
+.budget-form-fields { min-inline-size: 0; margin: 0; padding: 12px 0; border: 0; }
+.budget-form-fields legend { font-weight: 700; }
+.budget-timeline-group { display: grid; gap: 8px; }
+.budget-payment-notes { overflow-wrap: anywhere; }
