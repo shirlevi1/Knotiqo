@@ -37,12 +37,13 @@ cookie first from `GET /api/auth/csrf/` and send `X-CSRFToken`. An account sessi
 is optional. Both public actions send a token in JSON:
 
 - `{"action":"read","token":"..."}` returns couple names, date, invited
-  quantity, nullable age limits and the available options. No guest name,
+  quantity, authoritative age limits and the available options. No guest name,
   contact fields, invitation record ID or unrelated wedding information is returned.
-- `{"action":"respond","token":"...","status":"attending","attendee_count":2}`
-  records attendance for a group without age limits. For known ages send all
-  three integer fields `adult_count`, `child_count`, `infant_count` in place of
-  `attendee_count`. Values are capped by the guest record. For `declining` or
+- `{"action":"respond","token":"...","status":"attending","adult_count":2,"child_count":0,"infant_count":0}`
+  records attendance within the invitation's authoritative age limits.
+  Existing clients may submit a total-only response for an all-adult invitation.
+  The API stores it as adult attendance. For mixed-age invitations send all
+  three integer fields in place of `attendee_count`. Values are capped by the guest record. For `declining` or
   `maybe`, omit all count fields. Success returns `{"saved":true}`.
 
 Each guest has one response. Repeating the same submission leaves it unchanged.

@@ -85,7 +85,7 @@ class GuestWorkbookDownloadTests(TestCase):
             self.assertEqual([row[0] for row in rows[1:]], names)
             if not archive:
                 self.assertEqual(rows[1], ("נועה לוי", "0500123456", "noa@example.com", "bride", "child",
-                                           3, None, None, None, "לוי", "הערה", '["קרובים"]', "לא"))
+                                           3, 3, 0, 0, "לוי", "הערה", '["קרובים"]', "לא"))
             if archive:
                 self.assertEqual(rows[-1][-1], "כן")
 
@@ -130,14 +130,14 @@ class GuestWorkbookDownloadTests(TestCase):
         mixed, legacy = preview["rows"]
         self.assertEqual([mixed["values"][key] for key in ("adult_count", "child_count", "infant_count", "party_size")],
                          ["2", "1", "1", "4"])
-        self.assertNotIn("adult_count", legacy["values"])
+        self.assertEqual(legacy["values"]["adult_count"], "3")
         result = self.client.post(root + "confirm/", {
             "preview_id": preview["preview_id"],
             "decisions": [{"row": 2, "action": "create"}, {"row": 3, "action": "create"}],
         }, format="json", **csrf)
         self.assertEqual(result.json()["created"], 2)
         guests = list(Guest.objects.filter(wedding=self.wedding).values_list("party_size", "adult_count", "child_count", "infant_count"))
-        self.assertEqual(guests, [(4, 2, 1, 1), (3, None, None, None)] * 2)
+        self.assertEqual(guests, [(4, 2, 1, 1), (3, 3, 0, 0)] * 2)
 
     def test_downloads_require_login_and_membership(self):
         for suffix in ("template/", "export/"):

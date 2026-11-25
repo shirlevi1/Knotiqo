@@ -108,7 +108,7 @@ class BudgetTests(TestCase):
         Guest.objects.create(wedding=self.other, full_name="Foreign")
         snapshot = self.client.get(self.base).json()
         self.assertEqual(snapshot["attendee_summary"], {
-            "attendees": 7, "adult_count": 2, "child_count": 1, "infant_count": 1, "unclassified_count": 3,
+            "attendees": 7, "adult_count": 5, "child_count": 1, "infant_count": 1, "unclassified_count": 0,
         })
         url = self.base + "venue-simulation/"
         for quote_id, guests, status in ((self.foreign.pk, 2, 404), (self.quote.pk, 0, 400), (self.quote.pk, True, 400)):

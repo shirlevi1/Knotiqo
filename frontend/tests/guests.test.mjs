@@ -96,7 +96,7 @@ test("lists server counts, paginates and applies search, side, category and arch
     await render();
     assert.match(container.querySelector(".guest-summary").textContent, /מקומות למוזמנים3.*רשומות מוזמנים1.*מלווים ללא שם2/);
     assert.match(container.querySelector("tbody").textContent, /נועה לוי/);
-    assert.match(container.querySelector("tbody").textContent, /ללא פירוט גילאים/);
+    assert.match(container.querySelector("tbody").textContent, /מבוגרים 3/);
     await click("הבא");
     await settle();
     assert.equal(requests.at(-1).page, "2");
@@ -118,6 +118,7 @@ test("creates, preserves form data on validation errors, edits, archives and res
             if (fail) { fail = false; return Response.json({ full_name: ["server validation text"] }, { status: 400 }); }
             assert.equal(pathname, method === "POST" ? base : base + "10/");
             assert.equal("wedding_id" in values, false);
+            if ("full_name" in values) assert.deepEqual([values.party_size, values.adult_count, values.child_count, values.infant_count], [1, 1, 0, 0]);
             saved = { ...(saved ?? guest), ...values };
             return Response.json(saved);
         }
@@ -174,7 +175,7 @@ test("downloads binary XLSX with safe filenames and applies the selected archive
     assert.deepEqual(downloads, ["official.xlsx", "knotiqo-guests.xlsx"]);
 });
 
-test("completes a legacy age breakdown and renders the mixed family without double counting", async (t) => {
+test("defaults to adults, derives a mixed family and prevents counts above the total", async (t) => {
     let saved = guest;
     mockApi(t, ({ pathname }, method, options) => {
         if (method === "GET") return Response.json(payload([saved], { summary: {
@@ -191,17 +192,21 @@ test("completes a legacy age breakdown and renders the mixed family without doub
     });
     await render();
     await click("עריכה");
-    assert.match(container.querySelector("form").textContent, /נשמרה כמות כוללת בלבד/);
+    assert.equal(container.querySelector('input[name="adult_count"]').value, "3");
     const setter = Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, "value").set;
-    for (const [name, value] of [["adult_count", "2"], ["child_count", "1"], ["infant_count", "1"]]) {
+    for (const [name, value] of [["party_size", "4"], ["child_count", "5"], ["infant_count", "1"]]) {
         const field = container.querySelector(`input[name="${name}"]`);
         await act(() => { setter.call(field, value); field.dispatchEvent(new dom.window.Event("input", { bubbles: true })); });
     }
-    assert.match(container.querySelector(".guest-age-fields").textContent, /סה״כ מקומות: 4/);
+    await click("שמירת מוזמן");
+    assert.match(container.querySelector(".guest-age-fields").textContent, /לא יכול לעלות/);
+    const childCount = container.querySelector('input[name="child_count"]');
+    await act(() => { setter.call(childCount, "1"); childCount.dispatchEvent(new dom.window.Event("input", { bubbles: true })); });
+    assert.equal(container.querySelector('input[name="adult_count"]').value, "2");
     await click("שמירת מוזמן");
     await settle();
     assert.match(container.querySelector("tbody").textContent, /4 מקומות.*מבוגרים 2.*ילדים 1.*תינוקות 1/);
-    assert.match(container.querySelector(".guest-summary").textContent, /מקומות למוזמנים4.*ללא פירוט גילאים0/);
+    assert.match(container.querySelector(".guest-summary").textContent, /מקומות למוזמנים4.*מבוגרים2/);
 });
 
 const session = {

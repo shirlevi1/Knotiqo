@@ -1,3 +1,6 @@
+from importlib import import_module
+from types import SimpleNamespace
+
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError, connection, transaction
 from django.db.migrations.executor import MigrationExecutor
@@ -9,9 +12,9 @@ from weddings.services import create_wedding
 
 
 class GuestAgeMigrationTests(TransactionTestCase):
-    def test_preserves_legacy_guests_without_assigning_age_breakdowns(self):
-        before = [("weddings", "0007_guest_import_session")]
-        after = [("weddings", "0008_guest_age_counts")]
+    def test_defaults_legacy_ages_idempotently_without_changing_explicit_counts(self):
+        before = [("weddings", "0015_journey_feature_activation")]
+        after = [("weddings", "0016_guest_adult_defaults")]
         executor = MigrationExecutor(connection)
         try:
             executor.migrate(before)
@@ -20,12 +23,25 @@ class GuestAgeMigrationTests(TransactionTestCase):
             guest = old_apps.get_model("weddings", "Guest").objects.create(
                 wedding_id=wedding.pk, full_name="Legacy fixture", category="child", party_size=3,
             )
+            explicit = old_apps.get_model("weddings", "Guest").objects.create(
+                wedding_id=wedding.pk, full_name="Mixed", party_size=4, adult_count=2, child_count=1, infant_count=1,
+            )
+            rsvp = old_apps.get_model("weddings", "GuestRSVP").objects.create(guest_id=guest.pk,
+                                                                            status="attending", attendee_count=2)
             executor = MigrationExecutor(connection)
             executor.migrate(after)
             new_apps = executor.loader.project_state(after).apps
             migrated = new_apps.get_model("weddings", "Guest").objects.get(pk=guest.pk)
             self.assertEqual((migrated.wedding_id, migrated.category, migrated.party_size), (wedding.pk, "child", 3))
-            self.assertEqual((migrated.adult_count, migrated.child_count, migrated.infant_count), (None, None, None))
+            self.assertEqual((migrated.adult_count, migrated.child_count, migrated.infant_count), (3, 0, 0))
+            explicit_after = new_apps.get_model("weddings", "Guest").objects.get(pk=explicit.pk)
+            self.assertEqual((explicit_after.adult_count, explicit_after.child_count, explicit_after.infant_count), (2, 1, 1))
+            response = new_apps.get_model("weddings", "GuestRSVP").objects.get(pk=rsvp.pk)
+            self.assertEqual((response.adult_count, response.child_count, response.infant_count), (2, 0, 0))
+            migrate_data = import_module("weddings.migrations.0016_guest_adult_defaults").default_legacy_ages
+            migrate_data(new_apps, SimpleNamespace(connection=connection))
+            explicit_after.refresh_from_db()
+            self.assertEqual((explicit_after.adult_count, explicit_after.child_count, explicit_after.infant_count), (2, 1, 1))
         finally:
             executor = MigrationExecutor(connection)
             executor.migrate(executor.loader.graph.leaf_nodes())
@@ -77,7 +93,7 @@ class GuestApiTests(TestCase):
 
     def test_filters_pagination_and_summary_count_companions_once(self):
         Guest.objects.create(wedding=self.wedding, full_name="דנה לוי", phone="050-1234567", side="bride", party_size=3)
-        Guest.objects.create(wedding=self.wedding, full_name="טל כהן", side="groom", category="child")
+        Guest.objects.create(wedding=self.wedding, full_name="טל כהן", side="groom", category="child", adult_count=0, child_count=1, infant_count=0)
         Guest.objects.create(wedding=self.wedding, full_name="שיר", side="joint", party_size=2)
         Guest.objects.create(wedding=self.wedding, full_name="Archived", is_archived=True, party_size=4)
         Guest.objects.create(wedding=self.other, full_name="Outside", party_size=9)
@@ -86,7 +102,7 @@ class GuestApiTests(TestCase):
         self.assertIsNotNone(first["next"])
         self.assertEqual(first["summary"], {
             "records": 3, "attendees": 6, "unnamed_companions": 3,
-            "adult_count": 0, "child_count": 0, "infant_count": 0, "unclassified_count": 6,
+            "adult_count": 5, "child_count": 1, "infant_count": 0, "unclassified_count": 0,
             "bride": 3, "groom": 1, "joint": 2, "unassigned": 0,
         })
         for filters, expected in (
@@ -109,11 +125,11 @@ class GuestApiTests(TestCase):
                           response.data["unclassified_count"]), (4, 3, 0))
         summary = self.client.get(self.url).json()["summary"]
         self.assertEqual([summary[key] for key in ("adult_count", "child_count", "infant_count", "unclassified_count", "attendees")],
-                         [2, 1, 1, 4, 8])
+                         [6, 1, 1, 0, 8])
         self.assertEqual(self.client.get(self.url, {"category": "infant"}).json()["count"], 1)
         detail = f"{self.url}{response.data['id']}/"
         for values in (
-            {"party_size": 3}, {"adult_count": 4}, {"adult_count": None, "child_count": 0, "infant_count": 0},
+            {"party_size": 3}, {"party_size": 1, "infant_count": 2}, {"adult_count": None, "child_count": 0, "infant_count": 0},
             {"adult_count": -1, "child_count": 1, "infant_count": 1},
             {"adult_count": 0, "child_count": 0, "infant_count": 0},
             {"adult_count": 1, "child_count": 0, "infant_count": 0, "party_size": 2},
@@ -158,3 +174,13 @@ class GuestApiTests(TestCase):
             self.assertEqual(self.client.post(url, {"full_name": "Name"}, format="json", **self.csrf).status_code, 404)
         self.client.logout()
         self.assertEqual(self.client.get(self.url).status_code, 403)
+
+    def test_default_and_derived_adults_are_shared_and_unrelated_edits_preserve_counts(self):
+        for counts, expected in (({"party_size": 4}, (4, 0, 0)), ({"party_size": 4, "child_count": 1, "infant_count": 1}, (2, 1, 1))):
+            response = self.client.post(self.url, {"full_name": "Fixture", **counts}, format="json", **self.csrf)
+            self.assertEqual(response.status_code, 201, response.json())
+            detail = f"{self.url}{response.json()['id']}/"
+            self.login(self.partner)
+            updated = self.client.patch(detail, {"notes": "Changed"}, format="json", **self.csrf).json()
+            self.assertEqual(tuple(updated[field] for field in ("adult_count", "child_count", "infant_count")), expected)
+            self.login(self.owner)

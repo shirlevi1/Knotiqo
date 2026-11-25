@@ -210,6 +210,7 @@ export default function GuestImportWizard({ weddingId, onClose, onImported }: {
             </>}
             {step === 3 && preview && <>
                 <p>{preview.rows.filter(valid).length} שורות תקינות מתוך {preview.rows.length}. טרם נשמרו מוזמנים.</p>
+                <p>שורות ללא פירוט גילאים ייספרו כמבוגרים ביצירת מוזמן חדש. בעדכון או שחזור, הפירוט הקיים יישמר.</p>
                 {!!preview.unmapped_columns.length && <p>עמודות ללא מיפוי: {preview.unmapped_columns.map(({ column, heading }) =>
                     heading || `עמודה ${column}`).join(", ")}</p>}
                 <ul className="guest-row-list">

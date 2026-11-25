@@ -9,7 +9,7 @@ import "./BudgetPage.css";
 const suggestedNames = ["אולם וקייטרינג", "צילום", "די־ג׳יי ומוזיקה", "לבוש לחתונה", "שיער ואיפור",
     "עיצוב ופרחים", "הזמנות", "הסעות", "אחר"];
 const moneyLabels = ["תקציב כולל", "תקציב שהוקצה", "הוצאה משוערת", "תקציב שטרם הוקצה", "יתרה משוערת"];
-const attendeeLabels = ["סך משתתפים", "מבוגרים", "ילדים", "תינוקות", "ללא סיווג גיל"];
+const attendeeLabels = ["סך משתתפים", "מבוגרים", "ילדים", "תינוקות"];
 const moneyPattern = "[0-9]{1,10}([.,][0-9]{1,2})?";
 
 function displayMoney(amount: string) {
@@ -170,7 +170,7 @@ export default function BudgetPage({ weddingId, newExpense, expenseId, showPayme
             <section className="ui-panel budget-section" aria-labelledby="budget-guests">
                 <h2 id="budget-guests">משתתפים ברשימת המוזמנים</h2>
                 {budget.attendee_summary.attendees === 0 && <p>עדיין אין מוזמנים פעילים.</p>}
-                <dl className="budget-metrics">{attendeeFields.map((field, index) => <div key={field}>
+                <dl className="budget-metrics">{attendeeFields.filter((field) => field !== "unclassified_count").map((field, index) => <div key={field}>
                     <dt>{attendeeLabels[index]}</dt><dd>{budget.attendee_summary[field]}</dd>
                 </div>)}</dl>
             </section>

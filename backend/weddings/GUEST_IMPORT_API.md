@@ -27,13 +27,21 @@ headings. Choose a sheet and send the validated mapping, for example:
 most once. Blank optional cells are omitted so an update preserves the
 existing value. New guests use the model defaults for omitted fields.
 
-If any age count is entered, the other empty or unmapped age fields count
-as zero. The sum must be positive, and an entered total must match it.
-Preview shows the derived total. If all age counts are blank or unmapped,
-new records keep the provided total and an unknown breakdown. A total-only
-update or restore preserves the existing breakdown if the total is unchanged
-or omitted. A conflicting total returns `guest_age_conflict` (409).
-Map the age breakdown or omit the total to resolve it.
+For new guests, a total-only row is previewed and saved as all adults.
+If the total is provided with children or infants and the adult cell is
+blank, adults are the remainder. Explicit age counts take precedence and
+must match the supplied total. In a row with explicit age inputs, blank
+child and infant cells count as zero for creation. On update or restore,
+blank age cells preserve prior child and infant counts and the result is
+validated against any supplied total. Without a total, supplied age counts
+determine it. If neither quantity nor age is supplied, a new record defaults
+to one adult.
+
+A total-only update or restore preserves the saved age breakdown when the
+total is unchanged or omitted. A different total without explicit age
+inputs returns `guest_age_conflict` (409). The preview flags rows with
+derived adult defaults using `age_defaulted`; these preview values are
+only used for creation.
 
 Every nonblank data row has its original Excel `row` number, mapped
 `values`, field-keyed `errors` containing validation codes, and a list of

@@ -21,16 +21,21 @@ and `is_archived`. The default side is
 false. Phone and email can be blank. The response adds `id`,
 `unnamed_companions`, `unclassified_count`, `created_at`, and `updated_at`.
 
-To enter or replace an age breakdown, submit all three age counts as
-non-negative integers. Their sum must be positive. The API derives
-`party_size` and rejects a conflicting supplied total. To change the total
-of a classified record, submit a revised breakdown.
+Guests created with a total and no age counts default to that many adults,
+with zero children and infants. If child or infant counts are given with a
+total, omitting `adult_count` derives the adults as the remainder. If all
+three counts are supplied, their sum determines the total. A supplied total
+must agree. Negative counts, excess children or infants, and zero-person
+groups are rejected. Unrelated edits preserve the saved breakdown. Changing
+only the total of a mixed-age party requires age inputs.
 
-Legacy records and total-only imports keep their original `party_size` and
-`category`. All three age counts are `null`, and `unclassified_count` equals
-the total. The legacy category may have been defaulted and does not
-contribute to age totals. In the guest editor, enter the age counts to
-complete the breakdown. For classified records `unclassified_count` is zero.
+Migration `weddings.0016_guest_adult_defaults` converts historical records
+with all three counts null to adults by default, per the requested planning
+assumption. It preserves party sizes, historical categories, and explicit
+breakdowns, including archived records. The former unknown composition
+cannot be inferred from those records after migration. The database now
+requires all counts and enforces their sum. `unclassified_count` stays in
+responses for compatibility and is zero.
 
 A record represents one named guest. `party_size` includes that guest and
 their unnamed companions. For example, a party size of 3 counts one record,
@@ -38,7 +43,7 @@ three attendees, and two unnamed companions. When a companion becomes a
 separate named guest, reduce the original party size by one to count that
 person once. Companions share the record's side for headcounts. The
 `category` filter matches records with a positive known count for that age
-group, or the legacy category when the breakdown is missing.
+group. The historical `category` value is retained for compatibility and export.
 
 List query parameters are `search` (case-insensitive substring of name or
 stored phone), `side`, `category`, `archive` (`active` by default,
@@ -47,8 +52,7 @@ The response contains `count`, `next`, `previous`, `results`, and a
 `summary` across all filtered pages. Summary keys are `records`,
 `attendees`, `unnamed_companions`, `bride`, `groom`, `joint`, and
 `unassigned`, plus `adult_count`, `child_count`, `infant_count`, and
-`unclassified_count`. The known counts plus unclassified places equal
-`attendees`. Side counts are attendee counts.
+`unclassified_count`. The three age counts sum to `attendees`. Side counts are attendee counts.
 
 Apply `python manage.py migrate` to create the guest table with migration
 `weddings.0006_guest` and add age counts with `weddings.0008_guest_age_counts`.

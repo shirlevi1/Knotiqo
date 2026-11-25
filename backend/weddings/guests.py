@@ -32,7 +32,7 @@ class GuestSerializer(serializers.ModelSerializer):
             "notes", "is_archived", "created_at", "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
-        extra_kwargs = {field: {"min_value": 0, "max_value": MAX_PARTY_SIZE} for field in GUEST_AGE_FIELDS}
+        extra_kwargs = {field: {"min_value": 0, "max_value": MAX_PARTY_SIZE, "required": False} for field in GUEST_AGE_FIELDS}
 
     def to_internal_value(self, data):
         writable = {field.field_name for field in self.fields.values() if not field.read_only}
@@ -44,24 +44,34 @@ class GuestSerializer(serializers.ModelSerializer):
         return guest.party_size - 1
 
     def get_unclassified_count(self, guest):
-        return guest.party_size if guest.adult_count is None else 0
+        return 0
 
     def validate(self, attrs):
-        provided = [field for field in GUEST_AGE_FIELDS if field in attrs]
-        if provided:
-            if len(provided) != len(GUEST_AGE_FIELDS) or any(attrs[field] is None for field in provided):
-                raise serializers.ValidationError({"adult_count": "Provide all three age counts."})
-            total = sum(attrs[field] for field in GUEST_AGE_FIELDS)
-            if not 1 <= total <= MAX_PARTY_SIZE:
-                raise serializers.ValidationError({"party_size": "Age counts must sum to a positive supported total."})
-            if attrs.get("party_size", total) != total:
+        provided = set(GUEST_AGE_FIELDS) & attrs.keys()
+        existing = self.instance
+        requested_total = attrs.get("party_size")
+        if not provided and existing:
+            if requested_total is None or requested_total == existing.party_size:
+                return attrs
+            if existing.child_count or existing.infant_count:
+                raise serializers.ValidationError({"party_size": "Provide age counts to change this family total."},
+                                                  code="guest_age_conflict")
+
+        children = attrs.get("child_count", existing.child_count if existing else 0)
+        infants = attrs.get("infant_count", existing.infant_count if existing else 0)
+        if "adult_count" in attrs:
+            adults = attrs["adult_count"]
+            total = adults + children + infants
+            if requested_total is not None and requested_total != total:
                 raise serializers.ValidationError({"party_size": "Total must equal the sum of the age counts."})
-            attrs["party_size"] = total
-        elif self.instance and self.instance.adult_count is not None and (
-            attrs.get("party_size", self.instance.party_size) != self.instance.party_size
-        ):
-            raise serializers.ValidationError({"party_size": "Provide age counts to change this total."},
-                                              code="guest_age_conflict")
+        else:
+            total = requested_total if requested_total is not None else existing.party_size if existing else max(1, children + infants)
+            adults = total - children - infants
+            if adults < 0:
+                raise serializers.ValidationError({"party_size": "Children and infants cannot exceed the total."})
+        if not 1 <= total <= MAX_PARTY_SIZE:
+            raise serializers.ValidationError({"party_size": "Age counts must sum to a positive supported total."})
+        attrs.update(party_size=total, adult_count=adults, child_count=children, infant_count=infants)
         return attrs
 
     def validate_phone(self, phone):
@@ -84,10 +94,10 @@ class GuestSerializer(serializers.ModelSerializer):
 def summarize_guests(guests):
     summary = guests.order_by().aggregate(
         records=Count("pk"), attendees=Sum("party_size", default=0),
-        unclassified_count=Sum("party_size", filter=Q(adult_count__isnull=True), default=0),
         **{field: Sum(field, default=0) for field in GUEST_AGE_FIELDS},
         **{side: Sum("party_size", filter=Q(side=side), default=0) for side in Guest.Side.values},
     )
+    summary["unclassified_count"] = 0
     summary["unnamed_companions"] = summary["attendees"] - summary["records"]
     return summary
 
@@ -141,7 +151,7 @@ class GuestList(WeddingGuestView, ListCreateAPIView):
             guests = guests.filter(side=side)
         if category := filters.validated_data.get("category"):
             guests = guests.filter(
-                Q(adult_count__isnull=True, category=category) | Q(**{f"{category}_count__gt": 0}),
+                **{f"{category}_count__gt": 0},
             )
 
         page = self.paginate_queryset(guests)

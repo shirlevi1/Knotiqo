@@ -35,7 +35,8 @@ Allocated budget sums planned amounts. Estimated spending sums recorded estimate
 and excludes categories without estimates. Both remaining balances subtract their
 respective sum from the total and may be negative. An untouched wedding returns
 an empty budget without creating a database row. Guest counts are computed from
-guest records at request time. Unclassified guests remain unclassified.
+guest records at request time. Guest age counts use the adults-by-default policy.
+The legacy `unclassified_count` response field is zero.
 
 The simulation returns `expected_guests`, `quote_id`, `venue_id`, `venue_name`,
 `event_date`, `minimum_guests`, `price_per_guest`, `billable_guests`, `meals_cost`,

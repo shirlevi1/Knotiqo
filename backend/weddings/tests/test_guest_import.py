@@ -197,7 +197,7 @@ class GuestImportTests(TestCase):
                 self.assertEqual(len(data["worksheets"][0]["columns"]), 2)
                 preview = self.preview(data["session_id"], "עברית", {"full_name": 1, "phone": 2})
                 self.assertEqual(preview.json()["rows"][0]["values"], {
-                    "full_name": "נועה לוי", "phone": "0501234567",
+                    "full_name": "נועה לוי", "phone": "0501234567", "adult_count": "1", "child_count": "0", "infant_count": "0",
                 })
 
     def test_rejects_malformed_and_oversized_uploads(self):
@@ -288,7 +288,7 @@ class GuestImportTests(TestCase):
             {"row": 3, "action": "update", "guest_id": known.pk},
         ]).json()["updated"], 1)
         known.refresh_from_db()
-        self.assertEqual((known.party_size, known.adult_count, known.child_count, known.infant_count), (3, 2, 1, 0))
+        self.assertEqual((known.party_size, known.adult_count, known.child_count, known.infant_count), (4, 2, 1, 1))
 
     def test_counts_populated_rows_and_warns_after_non_guest_section_markers(self):
         def sparse_row(book):
@@ -306,3 +306,22 @@ class GuestImportTests(TestCase):
         self.assertEqual(self.confirm(session, preview["preview_id"], [{"row": 4, "action": "create"}]).status_code, 400)
         response = self.confirm(session, preview["preview_id"], [{"row": 1000, "action": "create"}])
         self.assertEqual(response.json()["created"], 1)
+
+    def test_total_only_defaults_in_preview_without_overwriting_existing_family(self):
+        existing = Guest.objects.create(wedding=self.wedding, full_name="Existing family", party_size=4,
+                                        adult_count=2, child_count=1, infant_count=1)
+        session = self.upload(xlsx(("List", [
+            ["Name", "Guest Count", "Children", "Infants"],
+            ["New adult group", 3], ["Existing family", "4.0"], ["New mixed family", 5, 1, 1],
+        ]))).json()["session_id"]
+        preview = self.preview(session, mapping={"full_name": 1, "party_size": 2, "child_count": 3, "infant_count": 4}).json()
+        self.assertEqual([row["values"]["adult_count"] for row in preview["rows"]], ["3", "4", "3"])
+        response = self.confirm(session, preview["preview_id"], [
+            {"row": 2, "action": "create"}, {"row": 3, "action": "update", "guest_id": existing.pk},
+            {"row": 4, "action": "create"},
+        ])
+        self.assertEqual(response.status_code, 200, response.json())
+        existing.refresh_from_db()
+        self.assertEqual((existing.adult_count, existing.child_count, existing.infant_count), (2, 1, 1))
+        self.assertEqual(Guest.objects.get(full_name="New adult group").adult_count, 3)
+        self.assertEqual(Guest.objects.get(full_name="New mixed family").adult_count, 3)

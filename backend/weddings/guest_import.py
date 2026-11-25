@@ -138,16 +138,21 @@ def row_data(cells, mapping):
         if field in CHOICE_ALIASES:
             value = CHOICE_ALIASES[field].get(value, value.casefold())
         payload[field] = value
-    if any(field in payload for field in GUEST_AGE_FIELDS):
-        for field in GUEST_AGE_FIELDS:
-            payload.setdefault(field, "0")
+    age_inputs = [field for field in ("party_size", *GUEST_AGE_FIELDS) if field in payload]
+    has_explicit_age = any(field in age_inputs for field in GUEST_AGE_FIELDS)
+    if has_explicit_age:
+        payload.setdefault("child_count", "0")
+        payload.setdefault("infant_count", "0")
     serializer = GuestSerializer(data=payload)
     if not serializer.is_valid():
         for field, messages in serializer.errors.items():
             errors.setdefault(field, [str(message.code) for message in messages])
-    elif "adult_count" in payload:
-        payload["party_size"] = str(serializer.validated_data["party_size"])
-    return payload, errors, warnings
+    elif not errors:
+        for field in GUEST_AGE_FIELDS:
+            payload[field] = str(serializer.validated_data[field])
+        if has_explicit_age or "party_size" in payload:
+            payload["party_size"] = str(serializer.validated_data["party_size"])
+    return payload, errors, warnings, age_inputs
 
 
 def match_keys(data):
@@ -219,14 +224,15 @@ def preview_session(user, wedding_id, session_id, worksheet, mapping):
     for number, cells in sheet["rows"]:
         if number == 1:
             continue
-        data, errors, warnings = row_data(cells, mapping)
+        data, errors, warnings, age_inputs = row_data(cells, mapping)
         name_key = heading_key(data.get("full_name", ""))
         if name_key and (name_key in headings or name_key in section_labels):
             errors.setdefault("full_name", []).append("non_guest_row")
             section_boundary = True
         elif section_boundary:
             warnings.append("review_section_boundary")
-        rows.append({"row": number, "values": data, "errors": errors, "warnings": warnings})
+        rows.append({"row": number, "values": data, "errors": errors, "warnings": warnings,
+                     "age_defaulted": not any(field in age_inputs for field in GUEST_AGE_FIELDS), "age_inputs": age_inputs})
     duplicate_details(wedding_id, rows)
     used = set(mapping.values())
     preview = {
@@ -279,6 +285,25 @@ def confirm_session(user, wedding_id, session_id, preview_id, decisions):
                 or guest.is_archived != (action == "restore")):
             raise ImportIssue("guest_changed", 409)
         values = row["values"].copy()
+        fields = GuestSerializer().fields if "age_inputs" not in row else None
+        if row.get("age_defaulted", not any(field in values for field in GUEST_AGE_FIELDS)):
+            for field in GUEST_AGE_FIELDS:
+                values.pop(field, None)
+            if "party_size" in values and (
+                fields["party_size"].run_validation(values["party_size"]) if fields is not None else int(values["party_size"])
+            ) != guest.party_size:
+                raise ImportIssue("guest_age_conflict", 409)
+        elif "age_inputs" in row:
+            # Preview fills cells for creation. Updates only apply the source
+            # inputs so blank child and infant cells cannot erase saved counts.
+            source_fields = set(row["age_inputs"])
+            for field in ("party_size", *GUEST_AGE_FIELDS):
+                if field not in source_fields:
+                    values.pop(field, None)
+        elif any(field in values and fields[field].run_validation(values[field]) != getattr(guest, field)
+                 for field in GUEST_AGE_FIELDS):
+            # Old previews do not distinguish explicit zero from a blank cell.
+            raise ImportIssue("stale_preview", 409)
         if action == "restore":
             values["is_archived"] = False
         serializer = GuestSerializer(guest, data=values, partial=True)

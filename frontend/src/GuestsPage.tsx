@@ -29,14 +29,11 @@ function GuestForm({ guest, onSave, onClose, busy }: {
 }) {
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [error, setError] = useState("");
-    const [counts, setCounts] = useState({
-        adult_count: guest?.adult_count?.toString() ?? "",
-        child_count: guest?.child_count?.toString() ?? "",
-        infant_count: guest?.infant_count?.toString() ?? "",
-    });
-    const [legacyTotal, setLegacyTotal] = useState(String(guest?.party_size ?? 1));
-    const hasBreakdown = guest?.adult_count != null || ageFields.some((field) => counts[field] !== "");
-    const total = hasBreakdown ? ageFields.reduce((sum, field) => sum + Number(counts[field]), 0) : Number(legacyTotal);
+    const [partySize, setPartySize] = useState(String(guest?.party_size ?? 1));
+    const [children, setChildren] = useState(String(guest?.child_count ?? 0));
+    const [infants, setInfants] = useState(String(guest?.infant_count ?? 0));
+    const total = Number(partySize);
+    const adults = total - Number(children) - Number(infants);
     const title = useRef<HTMLHeadingElement>(null);
     useEffect(() => { title.current?.focus(); }, []);
 
@@ -57,13 +54,13 @@ function GuestForm({ guest, onSave, onClose, busy }: {
         if (payload.phone && (payload.phone.length > 32 || !/^\+?[0-9 ().-]+$/.test(payload.phone)
             || !/^\d{5,15}$/.test(payload.phone.replace(/\D/g, "")))) mark("phone");
         if (payload.email && (payload.email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email))) mark("email");
-        if (hasBreakdown) {
-            for (const field of ageFields) {
-                if (!/^\d*$/.test(counts[field])) mark(field);
-                payload[field] = Number(counts[field]);
-            }
-        } else if (!/^\d+$/.test(legacyTotal)) mark("party_size");
-        if (!Number.isInteger(total) || total < 1 || total > 2147483647) mark("party_size");
+        if (!/^\d+$/.test(partySize) || total < 1 || total > 2147483647) mark("party_size");
+        if (!/^\d*$/.test(children)) mark("child_count");
+        if (!/^\d*$/.test(infants)) mark("infant_count");
+        if (adults < 0) invalid.party_size = "מספר הילדים והתינוקות לא יכול לעלות על הכמות הכוללת.";
+        payload.adult_count = adults;
+        payload.child_count = Number(children);
+        payload.infant_count = Number(infants);
         if (payload.family_group.length > 150) mark("family_group");
         if (payload.notes.length > 4000) mark("notes");
         if (payload.tags.length > 20 || payload.tags.some((tag) => tag.length > 40)) mark("tags");
@@ -104,7 +101,7 @@ function GuestForm({ guest, onSave, onClose, busy }: {
                         {Object.entries(sides).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
                     </select>{errors.side && <span className="ui-error">{errors.side}</span>}
                 </label>
-                <label className="ui-field">קטגוריה ותיקה (לסינון רשומות ללא פירוט)
+                <label className="ui-field">קטגוריה היסטורית (לייצוא)
                     <select className="ui-input" name="category" defaultValue={guest?.category ?? "adult"} aria-invalid={!!errors.category}>
                         {Object.entries(categories).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
                     </select>{errors.category && <span className="ui-error">{errors.category}</span>}
@@ -117,21 +114,26 @@ function GuestForm({ guest, onSave, onClose, busy }: {
             <fieldset className="guest-age-fields">
                 <legend>פירוט גילאים</legend>
                 <div className="guest-fields">
-                    {ageFields.map((field) => <label className="ui-field" key={field}>{guestFields[field]}
-                        <input name={field} className="ui-input" type="number" min={0} step={1} value={counts[field]}
-                            aria-invalid={!!errors[field]} onChange={(event) => setCounts((before) => ({
-                                ...before, [field]: event.target.value,
-                            }))} />
-                        {errors[field] && <span className="ui-error">{errors[field]}</span>}
-                    </label>)}
-                    {!hasBreakdown && <label className="ui-field">כמות מוזמנים ללא פירוט
-                        <input name="party_size" className="ui-input" type="number" min={1} step={1} value={legacyTotal}
-                            aria-invalid={!!errors.party_size} onChange={(event) => setLegacyTotal(event.target.value)} />
-                    </label>}
+                    <label className="ui-field">כמות מוזמנים
+                        <input name="party_size" className="ui-input" type="number" min={1} max={2147483647} step={1}
+                            value={partySize} aria-invalid={!!errors.party_size} onChange={(event) => setPartySize(event.target.value)} />
+                    </label>
+                    <label className="ui-field">מבוגרים
+                        <input name="adult_count" className="ui-input" type="number" readOnly value={adults >= 0 ? adults : ""} />
+                    </label>
+                    <label className="ui-field">ילדים
+                        <input name="child_count" className="ui-input" type="number" min={0} step={1} value={children}
+                            aria-invalid={!!errors.child_count} onChange={(event) => setChildren(event.target.value)} />
+                        {errors.child_count && <span className="ui-error">{errors.child_count}</span>}
+                    </label>
+                    <label className="ui-field">תינוקות
+                        <input name="infant_count" className="ui-input" type="number" min={0} step={1} value={infants}
+                            aria-invalid={!!errors.infant_count} onChange={(event) => setInfants(event.target.value)} />
+                        {errors.infant_count && <span className="ui-error">{errors.infant_count}</span>}
+                    </label>
                 </div>
-                <p className="guest-muted">הפירוט כולל את כל בני הקבוצה, כולל המוזמן או המוזמנת ששמם רשום. תאים ריקים בפירוט נספרים כאפס לאחר הזנת כמות באחד השדות.</p>
-                {hasBreakdown && <p>סה״כ מקומות: {Number.isFinite(total) ? number.format(total) : "—"}</p>}
-                {guest && !hasBreakdown && <p>ברשומה זו נשמרה כמות כוללת בלבד. אפשר להשלים כאן את הפירוט.</p>}
+                <p className="guest-muted">הכמות הכוללת כוללת את כל בני הקבוצה. המבוגרים מחושבים אוטומטית לאחר הפחתת הילדים והתינוקות.</p>
+                {adults < 0 && !errors.party_size && <p className="ui-error">מספר הילדים והתינוקות לא יכול לעלות על הכמות הכוללת.</p>}
                 {errors.party_size && <p className="ui-error">{errors.party_size}</p>}
             </fieldset>
             <label className="ui-field">הערות
@@ -270,11 +272,10 @@ function WeddingGuests({ weddingId, weddingName, rsvpFocus }: { weddingId: numbe
                 <button type="button" className="ui-button ui-button--secondary" onClick={() => refresh(true)}>טעינה מחדש</button>
             </> : data && summary && <>
                 <dl className="guest-summary ui-panel" aria-label="סיכום תוצאות הסינון">
-                    {(["attendees", "records", "unnamed_companions", ...ageFields, "unclassified_count",
+                    {(["attendees", "records", "unnamed_companions", ...ageFields,
                         "bride", "groom", "joint", "unassigned"] as const).map((key) => {
                         const label = key === "attendees" ? "מקומות למוזמנים" : key === "records" ? "רשומות מוזמנים"
                             : key === "unnamed_companions" ? "מלווים ללא שם"
-                            : key === "unclassified_count" ? "ללא פירוט גילאים"
                             : key in guestFields ? guestFields[key as keyof typeof guestFields] : sides[key as keyof typeof sides];
                         return <div key={key}><dt>{label}</dt><dd>{number.format(summary[key])}</dd></div>;
                     })}
@@ -290,8 +291,8 @@ function WeddingGuests({ weddingId, weddingName, rsvpFocus }: { weddingId: numbe
                             <td role="cell" data-label="צד בחתונה">{sides[guest.side]}</td>
                             <td role="cell" data-label="מקומות ופירוט גילאים">
                                 <strong>{number.format(guest.party_size)} מקומות</strong>
-                                <div className="guest-age-breakdown">{guest.adult_count == null ? "ללא פירוט גילאים" : ageFields.map((field) =>
-                                    <span key={field}>{guestFields[field]} {number.format(guest[field] ?? 0)}</span>)}</div>
+                                <div className="guest-age-breakdown">{ageFields.map((field) =>
+                                    <span key={field}>{guestFields[field]} {number.format(guest[field] ?? (field === "adult_count" ? guest.party_size : 0))}</span>)}</div>
                             </td>
                             <td role="cell" data-label="משפחה"><bdi>{guest.family_group || "—"}</bdi></td>
                             <td role="cell" data-label="פעולות"><div className="guest-toolbar">

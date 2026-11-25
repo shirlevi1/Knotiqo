@@ -124,20 +124,22 @@ def valid_quantities(guest, data):
     status = data.get("status")
     if not isinstance(status, str) or status not in GuestRSVP.Status.values:
         return None
-    known = guest.adult_count is not None
     base = {"token", "action", "status"}
     extras = set(data) - base
     if status != GuestRSVP.Status.ATTENDING:
         return (status, 0, dict.fromkeys(GUEST_AGE_FIELDS)) if not extras else None
-    fields = GUEST_AGE_FIELDS if known else ("attendee_count",)
-    if extras != set(fields) or any(type(data[field]) is not int or data[field] < 0 for field in fields):
+    if extras == {"attendee_count"} and not (guest.child_count or guest.infant_count):
+        # A form opened before the adult-default migration can still submit.
+        data = {**data, "adult_count": data["attendee_count"], "child_count": 0, "infant_count": 0}
+        extras = set(GUEST_AGE_FIELDS)
+    if extras != set(GUEST_AGE_FIELDS) or any(
+        type(data[field]) is not int or not 0 <= data[field] <= getattr(guest, field) for field in GUEST_AGE_FIELDS
+    ):
         return None
-    if known and any(data[field] > getattr(guest, field) for field in fields):
-        return None
-    total = sum(data[field] for field in fields)
+    total = sum(data[field] for field in GUEST_AGE_FIELDS)
     if not 1 <= total <= guest.party_size:
         return None
-    return status, total, {field: data.get(field) for field in GUEST_AGE_FIELDS}
+    return status, total, {field: data[field] for field in GUEST_AGE_FIELDS}
 
 
 @transaction.atomic
@@ -203,7 +205,7 @@ def public_rsvp(request):
             "partner_display_name": wedding.partner_display_name,
             "wedding_date": wedding.wedding_date,
             "invited_count": guest.party_size,
-            "age_limits": {field: getattr(guest, field) for field in GUEST_AGE_FIELDS} if guest.adult_count is not None else None,
+            "age_limits": {field: getattr(guest, field) for field in GUEST_AGE_FIELDS},
             "options": GuestRSVP.Status.values,
         })
     except DatabaseError:

@@ -90,10 +90,10 @@ class RSVPTests(TestCase):
         self.assertEqual(self.members.get(self.path()).json()["response"]["attendee_count"], 0)
         self.assertEqual(GuestRSVP.objects.filter(guest=self.guest).count(), 1)
         legacy = self.issue(self.legacy)
-        self.assertIsNone(self.visit(legacy).json()["age_limits"])
+        self.assertEqual(self.visit(legacy).json()["age_limits"], {"adult_count": 3, "child_count": 0, "infant_count": 0})
         self.assertEqual(self.visit(legacy, "respond", status="attending", attendee_count=4).status_code, 400)
         self.assertEqual(self.visit(legacy, "respond", status="attending", attendee_count=2).status_code, 200)
-        self.assertIsNone(self.members.get(self.path(self.legacy)).json()["response"]["adult_count"])
+        self.assertEqual(self.members.get(self.path(self.legacy)).json()["response"]["adult_count"], 2)
 
     def test_auth_csrf_origin_and_local_sharing_gate(self):
         self.assertEqual(self.members.post(self.path(), {}, format="json").status_code, 403)

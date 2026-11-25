@@ -36,7 +36,7 @@ const weddings = [1, 2].map((id) => ({ id, name: `Wedding ${id}`, memberships: [
 const snapshot = {
     currency: "ILS", total_budget: "0.00", allocated_budget: "0.00", estimated_spending: "0.00",
     unallocated_budget: "0.00", estimated_remaining_budget: "0.00", missing_estimate_count: 0, categories: [],
-    attendee_summary: { attendees: 7, adult_count: 2, child_count: 1, infant_count: 1, unclassified_count: 3 },
+    attendee_summary: { attendees: 7, adult_count: 5, child_count: 1, infant_count: 1, unclassified_count: 0 },
 };
 
 function common(url) {
@@ -92,7 +92,7 @@ test("opens from the workspace, keeps Gemini available, and saves/edits/reorders
     await navigate("#/weddings/1/budget");
     assert.equal(container.querySelector(".atelier-sidebar [aria-current]").hash, "#/weddings/1/budget");
     assert.ok(container.querySelector(".budget-assistant").open);
-    assert.match(container.querySelector("#budget-guests + dl").textContent, /ללא סיווג גיל3/);
+    assert.match(container.querySelector("#budget-guests + dl").textContent, /מבוגרים5/);
     assert.match(container.querySelector(".budget-page").textContent, /עדיין אין קטגוריות/);
     const input = container.querySelector('[name="total_budget"]');
     const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;

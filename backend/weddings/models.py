@@ -46,23 +46,26 @@ class Guest(models.Model):
     family_group = models.CharField(max_length=150, blank=True)
     tags = models.JSONField(default=list, blank=True)
     party_size = models.PositiveIntegerField(default=1)
-    adult_count = models.PositiveIntegerField(null=True, blank=True)
-    child_count = models.PositiveIntegerField(null=True, blank=True)
-    infant_count = models.PositiveIntegerField(null=True, blank=True)
+    adult_count = models.PositiveIntegerField()
+    child_count = models.PositiveIntegerField()
+    infant_count = models.PositiveIntegerField()
     notes = models.TextField(blank=True, max_length=4000)
     is_archived = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if self._state.adding and all(getattr(self, field) is None for field in GUEST_AGE_FIELDS):
+            self.adult_count, self.child_count, self.infant_count = self.party_size, 0, 0
+        super().save(*args, **kwargs)
 
     class Meta:
         ordering = ["id"]
         constraints = [
             models.CheckConstraint(condition=models.Q(party_size__gte=1), name="guest_positive_party_size"),
             models.CheckConstraint(
-                condition=models.Q(adult_count__isnull=True, child_count__isnull=True, infant_count__isnull=True)
-                | models.Q(adult_count__isnull=False, child_count__isnull=False, infant_count__isnull=False,
-                           party_size=Cast("adult_count", models.BigIntegerField())
-                           + models.F("child_count") + models.F("infant_count")),
+                condition=models.Q(party_size=Cast("adult_count", models.BigIntegerField())
+                                   + models.F("child_count") + models.F("infant_count")),
                 name="guest_age_counts_match_party_size",
             ),
         ]
