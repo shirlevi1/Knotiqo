@@ -280,3 +280,106 @@ class ScheduledBudgetPayment(models.Model):
                 name="payment_paid_date_consistent",
             ),
         ]
+
+class GuestRSVP(models.Model):
+    class Status(models.TextChoices):
+        ATTENDING = "attending", "Attending"
+        DECLINING = "declining", "Declining"
+        MAYBE = "maybe", "Maybe"
+
+    guest = models.OneToOneField(Guest, on_delete=models.CASCADE, related_name="rsvp")
+    token_hash = models.CharField(max_length=64, null=True, unique=True, editable=False)
+    expires_at = models.DateTimeField(null=True)
+    status = models.CharField(max_length=10, choices=Status.choices, blank=True, default="")
+    attendee_count = models.PositiveIntegerField(default=0)
+    adult_count = models.PositiveIntegerField(null=True)
+    child_count = models.PositiveIntegerField(null=True)
+    infant_count = models.PositiveIntegerField(null=True)
+    responded_at = models.DateTimeField(null=True)
+
+
+class RSVPRateWindow(models.Model):
+    key = models.CharField(max_length=64, primary_key=True)
+    window_start = models.DateTimeField(db_index=True)
+    count = models.PositiveSmallIntegerField(default=0)
+
+class WeddingMeeting(models.Model):
+    class Type(models.TextChoices):
+        VENUE_TOUR = "venue_tour", "Venue tour"
+        IN_PERSON = "in_person", "In-person meeting"
+        PHONE = "phone", "Phone call"
+        VIDEO = "video", "Video call"
+        FITTING = "fitting", "Fitting"
+        OTHER = "other", "Other"
+
+    class Status(models.TextChoices):
+        SCHEDULED = "scheduled", "Scheduled"
+        COMPLETED = "completed", "Completed"
+        CANCELLED = "cancelled", "Cancelled"
+
+    wedding = models.ForeignKey(Wedding, on_delete=models.CASCADE, related_name="meetings")
+    venue = models.ForeignKey("venues.Venue", on_delete=models.SET_NULL, null=True, blank=True)
+    vendor = models.ForeignKey(WeddingVendor, on_delete=models.SET_NULL, null=True, blank=True)
+    title = models.CharField(max_length=150)
+    meeting_type = models.CharField(max_length=16, choices=Type.choices)
+    starts_at = models.DateTimeField()
+    ends_at = models.DateTimeField(null=True, blank=True)
+    contact_person = models.CharField(max_length=150, blank=True)
+    phone = models.CharField(max_length=32, blank=True)
+    location = models.CharField(max_length=300, blank=True)
+    video_url = models.URLField(max_length=500, blank=True)
+    notes = models.TextField(max_length=4000, blank=True)
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.SCHEDULED)
+
+    class Meta:
+        ordering = ["starts_at", "pk"]
+        indexes = [models.Index(fields=["wedding", "starts_at"], name="meeting_wedding_start_idx")]
+        constraints = [
+            models.CheckConstraint(condition=models.Q(venue__isnull=True) | models.Q(vendor__isnull=True),
+                                   name="meeting_at_most_one_resource"),
+            models.CheckConstraint(condition=models.Q(ends_at__isnull=True) | models.Q(ends_at__gt=models.F("starts_at")),
+                                   name="meeting_end_after_start"),
+        ]
+
+class JourneyTask(models.Model):
+    class Status(models.TextChoices):
+        OPEN = "open", "Open"
+        DONE = "done", "Done"
+        SKIPPED = "skipped", "Skipped"
+
+    class Priority(models.TextChoices):
+        NORMAL = "normal", "Normal"
+        HIGH = "high", "High"
+
+    wedding = models.ForeignKey(Wedding, on_delete=models.CASCADE, related_name="journey_tasks")
+    key = models.SlugField(max_length=48)
+    custom = models.BooleanField(default=False)
+    stage = models.PositiveSmallIntegerField()
+    title = models.CharField(max_length=150)
+    description = models.TextField(blank=True, max_length=1000)
+    status = models.CharField(max_length=8, choices=Status.choices, default=Status.OPEN)
+    priority = models.CharField(max_length=8, choices=Priority.choices, default=Priority.NORMAL)
+    due_date = models.DateField(null=True, blank=True)
+    position = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["wedding", "key"], name="journey_task_wedding_key"),
+            models.CheckConstraint(condition=models.Q(stage__range=(1, 6)), name="journey_task_stage_range"),
+        ]
+
+class JourneyFeatureActivation(models.Model):
+    class Feature(models.TextChoices):
+        VENDORS = "vendors", "Vendors"
+        PAYMENTS = "payments", "Payments"
+        RSVP = "rsvp", "RSVP"
+
+    wedding = models.ForeignKey(Wedding, on_delete=models.CASCADE, related_name="journey_feature_activations")
+    feature = models.CharField(max_length=12, choices=Feature.choices)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["wedding", "feature"], name="journey_feature_wedding_key"),
+            models.CheckConstraint(condition=models.Q(feature__in=["vendors", "payments", "rsvp"]),
+                                   name="journey_supported_feature"),
+        ]

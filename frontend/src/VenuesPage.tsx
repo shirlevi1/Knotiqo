@@ -1,3 +1,5 @@
+import { AppointmentLink, MeetingTime } from "./MeetingSummaries";
+import { useUpcomingMeetings } from "./useUpcomingMeetings";
 import { useEffect, useRef, useState } from "react";
 import { formatVenueMoney, venuesApi, VenueApiError, venueStatuses, type Venue, type VenueQuote } from "./api/venues";
 import { QuoteForm, VenueForm } from "./components/VenueForms";
@@ -41,19 +43,19 @@ function DeleteDialog({ removal, busy, error, onConfirm, onClose }: {
     );
 }
 
-type VenuePageProps = { weddingId: number; weddingName: string; initialComparison?: boolean };
+type VenuePageProps = { weddingId: number; weddingName: string; initialVenueId?: number; initialComparison?: boolean };
 
 export default function VenuesPage(props: VenuePageProps) {
     return <WeddingVenues key={props.weddingId} {...props} />;
 }
 
-function WeddingVenues({ weddingId, weddingName, initialComparison = false }: VenuePageProps) {
+function WeddingVenues({ weddingId, weddingName, initialVenueId, initialComparison = false }: VenuePageProps) {
     const [rows, setRows] = useState<Entry[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
     const [attempt, setAttempt] = useState(0);
-    const [selectedId, setSelectedId] = useState<number | null>(null);
+    const [selectedId, setSelectedId] = useState<number | null>(initialVenueId ?? null);
     const [comparing, setComparing] = useState(initialComparison);
     const [editor, setEditor] = useState<Editor | null>(null);
     const [removal, setRemoval] = useState<Removal | null>(null);
@@ -63,6 +65,8 @@ function WeddingVenues({ weddingId, weddingName, initialComparison = false }: Ve
     const [favoritesOnly, setFavoritesOnly] = useState(false);
     const action = useRef<AbortController | null>(null);
     const heading = useRef<HTMLHeadingElement>(null);
+    const upcoming = useUpcomingMeetings(weddingId, "venues");
+    const nextByVenue = new Map(upcoming?.records.map((meeting) => [meeting.venue_id, meeting]));
     const detailHeading = useRef<HTMLHeadingElement>(null);
     const api = venuesApi(weddingId);
     const selected = rows.find(({ venue }) => venue.id === selectedId);
@@ -185,7 +189,7 @@ function WeddingVenues({ weddingId, weddingName, initialComparison = false }: Ve
 
                     {selected && !editor ? (
                         <section className="venue-detail ui-card" aria-labelledby="venue-detail-title">
-                            <button className="ui-button ui-button--text" type="button" disabled={busy} onClick={() => setSelectedId(null)}>חזרה לאולמות</button>
+                            <button className="ui-button ui-button--text" type="button" disabled={busy} onClick={() => { if (initialVenueId) window.location.assign(`#/weddings/${weddingId}/venues`); setSelectedId(null); }}>חזרה לאולמות</button>
                             <h2 id="venue-detail-title" ref={detailHeading} tabIndex={-1}><bdi>{selected.venue.name}</bdi></h2>
                             <dl className="venue-management-facts">
                                 <dt>מיקום</dt><dd>{selected.venue.location || "לא הוזן"}</dd>
@@ -200,6 +204,8 @@ function WeddingVenues({ weddingId, weddingName, initialComparison = false }: Ve
                             <VenueGallery key={selected.venue.id} weddingId={weddingId} venue={selected.venue}
                                 onUpdate={(venue) => setRows((current) => current.map((row) =>
                                     row.venue.id === venue.id ? { ...row, venue } : row))} />
+                            <AppointmentLink weddingId={weddingId} kind="venue" id={selected.venue.id}
+                                state={upcoming} upcoming={nextByVenue.get(selected.venue.id)} />
                             <h3>הצעות מחיר</h3>
                             <button className="ui-button" type="button" disabled={busy} onClick={() => {
                                 setEditor({ kind: "quote", venueId: selected.venue.id });
@@ -242,12 +248,14 @@ function WeddingVenues({ weddingId, weddingName, initialComparison = false }: Ve
                             </div>}
                             <ul className="venue-management-cards">
                                 {filtered.map(({ venue, quotes }) => {
+                                    const upcomingMeeting = nextByVenue.get(venue.id);
                                     const cover = venue.images.find((image) => image.is_primary) ?? venue.images[0];
                                     return (
                                     <li className="ui-card" key={venue.id}>
                                         <div className="venue-card-cover"><VenuePhoto url={cover?.image_url} alt={cover?.alt_text} /></div>
                                         <p className="eyebrow">{venueStatuses[venue.status]}</p>
                                         <h2><bdi>{venue.name}</bdi></h2>
+                                        {upcomingMeeting && <p className="venue-card-meeting">פגישה קרובה · <MeetingTime meeting={upcomingMeeting} /></p>}
                                         {venue.location && <p>{venue.location}</p>}
                                         {venue.capacity !== null && <p>קיבולת · {venue.capacity.toLocaleString("he-IL")} אורחים</p>}
                                         {quotes.length > 0 && <p>הצעה אחרונה · <bdi>{formatVenueMoney(quotes.at(-1)!.price_per_guest)}</bdi> לאורח</p>}

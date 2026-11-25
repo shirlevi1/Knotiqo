@@ -1,1 +1,6 @@
 /private-media/
+
+# Local Windows launcher
+/.local-launcher/
+/.env
+/.venv/

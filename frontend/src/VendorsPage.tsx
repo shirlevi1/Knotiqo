@@ -1,3 +1,5 @@
+import { AppointmentLink, MeetingTime } from "./MeetingSummaries";
+import { useUpcomingMeetings } from "./useUpcomingMeetings";
 import { useEffect, useRef, useState } from "react";
 import { budgetApi, commitmentsApi, type BudgetCategory, type Commitments } from "./api/budget";
 import { formatVenueMoney } from "./api/venues";
@@ -42,6 +44,8 @@ export default function VendorsPage({ weddingId }: { weddingId: number }) {
     const panelRegion = useRef<HTMLDivElement>(null);
     const detailRegion = useRef<HTMLElement>(null);
     const api = vendorsForWedding(weddingId);
+    const upcoming = useUpcomingMeetings(weddingId, "vendors");
+    const nextByVendor = new Map(upcoming?.records.map((meeting) => [meeting.vendor_id, meeting]));
     const budgetRoute = `#/weddings/${weddingId}/budget`;
 
     useEffect(() => {
@@ -189,7 +193,7 @@ export default function VendorsPage({ weddingId }: { weddingId: number }) {
                         <thead><tr>{["ספק", "קטגוריה", "מצב", "סכום מוסכם", "שולם", "נותר", "התקדמות", "פעולות"]
                             .map((value) => <th scope="col" key={value}>{value}</th>)}</tr></thead>
                         <tbody>{visible.map((vendor) => <tr key={vendor.id}>
-                            <th scope="row">{vendor.name}</th><td>{vendor.service_category}</td><td>{vendorStatuses[vendor.status]}</td>
+                            <th scope="row">{vendor.name}{nextByVendor.has(vendor.id) && <span className="vendor-card-meeting">פגישה קרובה · <MeetingTime meeting={nextByVendor.get(vendor.id)!} /></span>}</th><td>{vendor.service_category}</td><td>{vendorStatuses[vendor.status]}</td>
                             <td>{formatted(vendor, "committed_cost")}</td><td>{formatted(vendor, "paid_amount")}</td>
                             <td>{formatted(vendor, "remaining_amount")}</td>
                             <td>{finance?.vendor_totals?.[vendor.id] ? <Progress amounts={finance.vendor_totals[vendor.id]} /> : "—"}</td>
@@ -197,7 +201,9 @@ export default function VendorsPage({ weddingId }: { weddingId: number }) {
                         </tr>)}</tbody>
                     </table>
                     <ul className="vendors-mobile">{visible.map((vendor) => <li key={vendor.id}>
-                        <h3>{vendor.name}</h3><p>{vendor.service_category} · {vendorStatuses[vendor.status]}</p>
+                        <h3>{vendor.name}</h3>
+                        {nextByVendor.has(vendor.id) && <p className="vendor-card-meeting">פגישה קרובה · <MeetingTime meeting={nextByVendor.get(vendor.id)!} /></p>}
+                        <p>{vendor.service_category} · {vendorStatuses[vendor.status]}</p>
                         <dl><div><dt>סכום מוסכם</dt><dd>{formatted(vendor, "committed_cost")}</dd></div>
                             <div><dt>שולם</dt><dd>{formatted(vendor, "paid_amount")}</dd></div>
                             <div><dt>נותר</dt><dd>{formatted(vendor, "remaining_amount")}</dd></div></dl>
@@ -219,6 +225,7 @@ export default function VendorsPage({ weddingId }: { weddingId: number }) {
                 {selected.email && <bdi>{selected.email}</bdi>}
                 {selected.website && <a href={selected.website} target="_blank" rel="noopener noreferrer">אתר הספק</a>}
             </div>
+            <AppointmentLink weddingId={weddingId} kind="vendor" id={selected.id} state={upcoming} upcoming={nextByVendor.get(selected.id)} />
             {selected.notes && <p className="vendors-copy">{selected.notes}</p>}
             <header className="vendors-header"><h3>{selected.quotes.length > 1 ? "השוואת הצעות מחיר" : "הצעות מחיר"}</h3><button className="ui-button ui-button--secondary" disabled={busy || !!panel}
                 onClick={() => setPanel({ type: "quote", vendor: selected })}>הוספת הצעה</button></header>

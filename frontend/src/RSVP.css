@@ -1,0 +1,22 @@
+.rsvp-page {
+    min-block-size: 100svh;
+    display: grid;
+    place-items: center;
+    padding: clamp(12px, 5vw, 48px);
+    background: radial-gradient(ellipse at top, #e4edf3, #f9fafb 66%);
+}
+.rsvp-card { display: grid; gap: 20px; width: min(100%, 570px); padding: clamp(18px, 6vw, 44px); }
+.rsvp-card :is(h1,h2,p) { margin: 0; }
+.rsvp-brand { color: #4a6279; font-family: Georgia, serif; font-size: 1.4rem; text-align: center; }
+.rsvp-heading { display: grid; gap: 8px; justify-items: center; text-align: center; }
+.rsvp-heading h1 { font-size: clamp(1.8rem, 7vw, 3rem); line-height: 1.15; }
+.rsvp-couple { font-size: 1.3rem; overflow-wrap: anywhere; }
+.rsvp-form, .rsvp-confirm, .rsvp-share { display: grid; gap: 16px; }
+.rsvp-options, .rsvp-counts { display: grid; gap: 8px; margin: 0; padding: 0; border: 0; min-inline-size: 0; }
+.rsvp-options legend, .rsvp-counts legend { margin-block-end: 8px; font-weight: 700; }
+.rsvp-options label { display: flex; gap: 10px; align-items: center; min-height: 44px; border: 1px solid #d5e0e8; border-radius: 8px; padding-inline: 12px; }
+.rsvp-options label:has(input:checked) { background: #e7eff6; border-color: #87a1b7; }
+.rsvp-counts { grid-template-columns: repeat(auto-fit, minmax(min(100%, 94px), 1fr)); }
+.rsvp-counts input { min-width: 0; width: 100%; }
+.rsvp-preview { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; padding: 12px; background: #eef3f7; border-radius: 8px; }
+.rsvp-share :is(input, textarea) { width: 100%; min-width: 0; }

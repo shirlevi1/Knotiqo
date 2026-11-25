@@ -38,7 +38,7 @@
 .atelier-sidebar[data-collapsed="true"] nav a { justify-content: center; }
 .atelier-collapse { display: block; margin-inline-start: auto; }
 :is(.atelier-sidebar, .atelier-drawer) nav ul { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 4px; }
-:is(.atelier-sidebar, .atelier-drawer) nav li:not(.atelier-account-link) + .atelier-account-link {
+:is(.atelier-sidebar, .atelier-drawer) nav .atelier-nav-group + .atelier-nav-group {
     border-block-start: 1px solid #dce4eb;
     margin-block-start: 4px;
     padding-block-start: 8px;

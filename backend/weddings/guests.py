@@ -11,7 +11,7 @@ from rest_framework.generics import GenericAPIView, ListCreateAPIView, RetrieveU
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 
-from .models import GUEST_AGE_FIELDS, Guest
+from .models import GUEST_AGE_FIELDS, Guest, GuestRSVP
 from .services import weddings_for_user
 
 
@@ -160,13 +160,23 @@ class GuestDetail(WeddingGuestView, RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         guests = super().get_queryset()
-        return guests.select_for_update() if self.request.method == "PATCH" else guests
+        return guests.select_for_update() if self.request.method in {"PATCH", "DELETE"} else guests
 
     @transaction.atomic
     def update(self, request, *args, **kwargs):
         return super().update(request, *args, **kwargs)
 
+    def perform_update(self, serializer):
+        guest = serializer.save()
+        if guest.is_archived:
+            GuestRSVP.objects.filter(guest=guest).update(token_hash=None, expires_at=None)
+
+    @transaction.atomic
+    def destroy(self, request, *args, **kwargs):
+        return super().destroy(request, *args, **kwargs)
+
     def perform_destroy(self, instance):
         if not instance.is_archived:
             instance.is_archived = True
             instance.save(update_fields=["is_archived", "updated_at"])
+            GuestRSVP.objects.filter(guest=instance).update(token_hash=None, expires_at=None)

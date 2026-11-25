@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
+import type { FeatureVisibility, PlanningFeature } from "../api/journey";
 import type { WeddingDetails } from "../api/weddings";
 
 type Props = {
     hash: string;
+    features?: FeatureVisibility;
     weddings: WeddingDetails[];
     weddingId?: number;
     onSelect: (id: number) => void;
@@ -10,34 +12,49 @@ type Props = {
 
 const items = [
     ["#workspace", "מרחב החתונה", "M3 11l9-8 9 8v9H3z M9 20v-6h6v6"],
+    ["journey", "מסלול החתונה", "M6 3h12v18H6z M9 8l1 1 2-2m1 2h3m-7 5 1 1 2-2m1 2h3"],
     ["venues", "אולמות", "M4 21V11a8 8 0 0 1 16 0v10 M8 21V11a4 4 0 0 1 8 0v10 M2 21h20"],
     ["guests", "מוזמנים", "M14 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0 M2 21v-2a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v2z M19 4a4 4 0 0 1 0 7m1 3a5 5 0 0 1 2 4v3"],
     ["vendors", "ספקים והוצאות", "M3 7h18v13H3z M8 7V4h8v3 M3 12h18 M10 12v2h4v-2"],
+    ["meetings", "לוח פגישות", "M3 6h18v15H3z M7 3v6m10-6v6M3 11h18m-9 3v3l2 1"],
     ["budget", "תקציב החתונה", "M5 3h14v18H5z M8 6h8v4H8z M8 14h1m3 0h1m3 0h1m-9 3h1m3 0h1m3 0h1"],
+    ["budget/payments", "מקדמות ותשלומים", "M3 6h18v12H3z M3 10h18 M6 14h4"],
+    ["guests/rsvp", "אישורי הגעה", "M5 4h14v16H5z M8 12l3 3 5-6"],
+    ["tools", "כל הכלים", "M4 4h6v6H4z M14 4h6v6h-6z M4 14h6v6H4z M14 14h6v6h-6z"],
     ["settings", "הגדרות החתונה", "M3 6h18v15H3z M7 3v6m10-6v6M3 11h18m-14 5h4"],
     ["#/account/profile", "הפרופיל שלי", "M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0 M4 21v-2a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v2z"],
     ["#/account/security", "אבטחת החשבון", "M12 22c6-3 9-7 9-15l-9-4-9 4c0 8 3 12 9 15z M8 12l3 3 5-6"],
 ] as const;
 
-function Links({ hash, weddings, weddingId, onSelect, onNavigate }: Props & { onNavigate?: () => void }) {
+const featureByRoute: Record<string, PlanningFeature> = { vendors: "vendors", "budget/payments": "payments", "guests/rsvp": "rsvp" };
+const sections = [
+    { name: "מרחב החתונה", routes: ["#workspace", "journey"] },
+    { name: "כלי תכנון", routes: ["venues", "guests", "budget", "meetings", "vendors", "budget/payments", "guests/rsvp", "tools"] },
+    { name: "הגדרות וחשבון", routes: ["settings", "#/account/profile", "#/account/security"] },
+];
+
+function Links({ hash, features, weddings, weddingId, onSelect, onNavigate }: Props & { onNavigate?: () => void }) {
     return <nav aria-label="ניווט ראשי">
         {weddings.length > 1 && <label className="ui-field atelier-wedding-picker">בחירת חתונה
             <select className="ui-input" value={weddingId} onChange={(event) => onSelect(Number(event.target.value))}>
                 {weddings.map(({ id, name }) => <option key={id} value={id}>{name}</option>)}
             </select>
         </label>}
-        <ul>{items.map(([route, label, path]) => {
+        {sections.map(({ name, routes }) => <ul className="atelier-nav-group" key={name} aria-label={name}>
+            {items.filter(([route]) => routes.includes(route)).map(([route, label, path]) => {
             if (!route.startsWith("#") && !weddingId) return null;
             const href = route.startsWith("#") ? route : `#/weddings/${weddingId}/${route}`;
-            const active = hash === href || (route === "venues" && hash === href + "/compare")
-                || (route === "budget" && hash.startsWith(href + "/"))
+            const active = hash === href || (route === "venues" && hash.startsWith(href + "/"))
+                || ((route === "meetings" || route === "budget" && hash !== href + "/payments") && hash.startsWith(href + "/"))
                 || (route === "#workspace" && !hash.startsWith("#/"));
-            return <li key={route} className={route.startsWith("#/account/") ? "atelier-account-link" : undefined}><a href={href} aria-current={active ? "page" : undefined} onClick={onNavigate} title={label}>
+            const feature = featureByRoute[route];
+            if (feature && !active && !features?.[feature]?.visible) return null;
+            return <li key={route}><a href={href} aria-current={active ? "page" : undefined} onClick={onNavigate} title={label}>
                 <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                     strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d={path} /></svg>
                 <span>{label}</span>
             </a></li>;
-        })}</ul>
+        })}</ul>)}
     </nav>;
 }
 

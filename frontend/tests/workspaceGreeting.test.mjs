@@ -369,3 +369,119 @@ test("profile and password forms use the account API and validate password confi
     assert.equal(passwordWrites, 1);
     assert.equal(form.elements.namedItem("new_password").value, "");
 });
+
+test("opens the journey from the homepage and persists completion and a custom task", async (t) => {
+    const base = "/api/weddings/1/journey/";
+    const stages = Array.from({ length: 6 }, (_, index) => ({
+        id: index + 1, title: `שלב ${index + 1}`, tasks: [],
+    }));
+    stages[0].tasks.push({ key: "budget-initial", stage: 1, title: "קביעת תקציב ראשוני", custom: false,
+        status: "open", priority: "normal", description: "", due_date: null, module: "budget", has_evidence: true });
+    const writes = [];
+    function progress(tasks) {
+        const completed = tasks.filter(({ status }) => status === "done").length;
+        return { completed, total: tasks.length, skipped: 0, percentage: tasks.length ? 100 * completed / tasks.length : null };
+    }
+    function response(summary) {
+        const tasks = stages.flatMap((stage) => stage.tasks);
+        return Response.json({ wedding_date: null, recommended_stage: null, recommended_stage_title: null,
+            next_actions: tasks.filter(({ status }) => status === "open"), progress: progress(tasks),
+            ...(!summary ? { stages: stages.map((stage) => ({ ...stage, progress: progress(stage.tasks) })) } : {}) });
+    }
+    t.mock.method(globalThis, "fetch", async (url, options = {}) => {
+        if (url === "/api/weddings/?include=memberships") return Response.json([wedding(1, [])]);
+        if (url === "/api/auth/csrf/") {
+            document.cookie = "csrftoken=journey-fixture";
+            return Response.json({});
+        }
+        if (url.includes("/meetings/upcoming/")) return Response.json([]);
+        if (url === base + "?summary=1") return response(true);
+        if (options.method === "GET") return response(false);
+        assert.equal(options.headers["X-CSRFToken"], "journey-fixture");
+        const input = JSON.parse(options.body);
+        writes.push(input);
+        if (options.method === "PATCH") Object.assign(stages[0].tasks[0], input);
+        else stages[1].tasks.push({ ...input, key: "custom-1", status: "open", custom: true, module: "" });
+        return response(false);
+    });
+    await render();
+    const shortcut = container.querySelector('.journey-dashboard a[href="#/weddings/1/journey"]');
+    assert.ok(shortcut);
+    await navigate(shortcut.hash);
+    assert.equal(container.querySelector(".atelier-sidebar [aria-current=page]").hash, shortcut.hash);
+    const panels = container.querySelectorAll(".journey-stage");
+    assert.equal(panels.length, 6);
+    assert.equal(panels[0].open, true);
+    assert.equal(panels[1].open, false);
+    await act(() => panels[1].querySelector("summary").click());
+    assert.equal(panels[1].open, true);
+    await act(() => panels[0].querySelector('input[type="checkbox"]').click());
+    assert.deepEqual(writes[0], { status: "done" });
+    assert.equal(container.querySelector(".journey-progress progress").value, 100);
+    await act(() => panels[1].querySelector(".journey-stage-body > button").click());
+    const form = panels[1].querySelector("form");
+    form.elements.title.value = "משימה חדשה";
+    assert.equal(form.elements.stage.value, "2");
+    await act(() => form.requestSubmit());
+    assert.equal(writes[1].title, "משימה חדשה");
+    assert.match(panels[1].textContent, /משימה חדשה/);
+    assert.equal(container.querySelector(".journey-progress progress").value, 50);
+    await navigate("#workspace");
+    assert.equal(container.querySelector(".journey-dashboard progress").value, 50);
+});
+
+test("a journey loading failure has a retry and does not invent progress", async (t) => {
+    t.mock.method(globalThis, "fetch", async (url) => url === "/api/weddings/?include=memberships"
+        ? Response.json([wedding(1, [])]) : Response.json({}, { status: 503 }));
+    await navigate("#/weddings/1/journey");
+    await render();
+    assert.match(container.querySelector(".journey-page [role=alert]").textContent, /טעינה מחדש/);
+    assert.equal(container.querySelector(".journey-page progress"), null);
+});
+
+test("stages the sidebar and homepage, activates a tool and restores visibility after a reload", async (t) => {
+    const weddingUrl = "/api/weddings/1/";
+    const writes = [];
+    let activated = false;
+    const flags = (visible = false) => ({ visible, activated: visible, has_data: false, recommended: false });
+    const summary = () => ({ wedding_date: null, recommended_stage: null, recommended_stage_title: null,
+        progress: { completed: 0, total: 40, percentage: 0, skipped: 0 }, next_actions: [],
+        features: { vendors: flags(activated), payments: flags(), rsvp: flags() } });
+    t.mock.method(globalThis, "fetch", async (url, options = {}) => {
+        if (url === "/api/weddings/?include=memberships") return Response.json([wedding(1, [])]);
+        if (url === "/api/auth/csrf/") {
+            document.cookie = "csrftoken=planning-fixture";
+            return Response.json({});
+        }
+        if (url === weddingUrl + "journey/?summary=1") return Response.json(summary());
+        if (url === weddingUrl + "journey/features/vendors/") {
+            assert.equal(options.method, "POST");
+            assert.equal(options.headers["X-CSRFToken"], "planning-fixture");
+            writes.push(url);
+            activated = true;
+            return Response.json(summary());
+        }
+        return Response.json(url.includes("upcoming") || url.endsWith("/vendors/") ? [] : {}, { status: 200 });
+    });
+    await render();
+    const primary = ".atelier-sidebar";
+    assert.equal(container.querySelectorAll(primary + " .atelier-nav-group").length, 3);
+    assert.equal(container.querySelector(primary + ' a[href$="/vendors"]'), null);
+    assert.ok(container.querySelector(".workspace-tools a[href$='/venues/compare']"));
+    await navigate("#/weddings/1/vendors");
+    assert.equal(container.querySelector(primary + " [aria-current]").hash, "#/weddings/1/vendors");
+    await navigate("#/weddings/1/tools");
+    const action = [...container.querySelectorAll(".planning-directory button")].find((node) => node.textContent.includes("ספקים והוצאות"));
+    assert.ok(action);
+    await act(async () => action.click());
+    assert.equal(writes.length, 1);
+    assert.equal(window.location.hash, "#/weddings/1/vendors");
+    await navigate("#workspace");
+    assert.ok(container.querySelector(primary + ' a[href$="/vendors"]'));
+    assert.ok(container.querySelector(".workspace-tools a[href$='/vendors']"));
+    await act(() => root.unmount());
+    root = createRoot(container);
+    await render();
+    assert.ok(container.querySelector(primary + ' a[href$="/vendors"]'));
+    assert.equal(writes.length, 1);
+});

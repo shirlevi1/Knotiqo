@@ -144,3 +144,7 @@ MAILERS = {
         'BACKEND': 'django.core.mail.backends.console.EmailBackend',
     },
 }
+
+# Setting this only enables link creation. Public RSVP still requires a secure
+# deployment that serves this exact HTTPS origin.
+PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "")

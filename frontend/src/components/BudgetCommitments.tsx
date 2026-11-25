@@ -20,8 +20,8 @@ function Money({ value }: { value: string }) {
     return <bdi>{formatVenueMoney(value)}</bdi>;
 }
 
-export default function BudgetCommitments({ weddingId, categories, newExpense, expenseId }: {
-    weddingId: number; categories: BudgetCategory[]; newExpense?: boolean; expenseId?: number;
+export default function BudgetCommitments({ weddingId, categories, newExpense, expenseId, showPayments }: {
+    weddingId: number; categories: BudgetCategory[]; newExpense?: boolean; expenseId?: number; showPayments?: boolean;
 }) {
     const [data, setData] = useState<Commitments | null>(null);
     const [editor, setEditor] = useState<Editor | null>(newExpense && categories.length ? { kind: "expense" } : null);
@@ -53,8 +53,8 @@ export default function BudgetCommitments({ weddingId, categories, newExpense, e
     useEffect(() => () => pending.current?.abort(), []);
     const loaded = data !== null;
     useEffect(() => {
-        if (loaded && (newExpense || expenseId !== undefined)) section.current?.scrollIntoView?.({ block: "start" });
-    }, [loaded, newExpense, expenseId]);
+        if (loaded && (showPayments || newExpense || expenseId !== undefined)) section.current?.scrollIntoView?.({ block: "start" });
+    }, [loaded, newExpense, expenseId, showPayments]);
 
     async function save(action: (signal: AbortSignal) => Promise<Commitments>) {
         if (pending.current) return;

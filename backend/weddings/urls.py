@@ -5,6 +5,9 @@ from .guests import GuestDetail, GuestList
 from .guest_exports import GuestExport, GuestTemplate
 from .guest_import_views import guest_import_confirm, guest_import_preview, guest_import_upload
 from .vendors import VendorCommitmentDetail, VendorCommitments, VendorDetail, VendorList, VendorQuoteDetail, VendorQuoteList
+from .journey import JourneyActivateFeature, JourneyOverview, JourneyTaskDetail
+from .rsvp import guest_rsvp_link
+from .meetings import MeetingDates, MeetingDetail, MeetingList, MeetingOptions, UpcomingMeetings
 from .views import accept_invitation, create_invitation, my_weddings, validate_invitation, wedding_couple_names, wedding_cover, wedding_details
 
 invitation_urlpatterns = [
@@ -17,6 +20,14 @@ urlpatterns = [
     path("<int:wedding_id>/", wedding_details, name="wedding-details"),
     path("<int:wedding_id>/couple-names/", wedding_couple_names, name="wedding-couple-names"),
     path("<int:wedding_id>/cover/", wedding_cover, name="wedding-cover"),
+    path("<int:wedding_id>/journey/", JourneyOverview.as_view(), name="journey"),
+    path("<int:wedding_id>/journey/features/<slug:feature>/", JourneyActivateFeature.as_view(), name="journey-feature"),
+    path("<int:wedding_id>/journey/tasks/<slug:task_key>/", JourneyTaskDetail.as_view(), name="journey-task"),
+    path("<int:wedding_id>/meetings/", MeetingList.as_view(), name="meeting-list"),
+    path("<int:wedding_id>/meetings/dates/", MeetingDates.as_view(), name="meeting-dates"),
+    path("<int:wedding_id>/meetings/options/", MeetingOptions.as_view(), name="meeting-options"),
+    path("<int:wedding_id>/meetings/upcoming/", UpcomingMeetings.as_view(), name="meeting-upcoming"),
+    path("<int:wedding_id>/meetings/<int:meeting_id>/", MeetingDetail.as_view(), name="meeting-detail"),
     path("<int:wedding_id>/budget/", BudgetDetail.as_view(), name="budget-detail"),
     path("<int:wedding_id>/budget/categories/", BudgetCategoryList.as_view(), name="budget-category-list"),
     path("<int:wedding_id>/budget/categories/<int:category_id>/", BudgetCategoryDetail.as_view(), name="budget-category-detail"),
@@ -39,6 +50,7 @@ urlpatterns = [
     path("<int:wedding_id>/guests/import/", guest_import_upload, name="guest-import-upload"),
     path("<int:wedding_id>/guests/import/<uuid:session_id>/preview/", guest_import_preview, name="guest-import-preview"),
     path("<int:wedding_id>/guests/import/<uuid:session_id>/confirm/", guest_import_confirm, name="guest-import-confirm"),
+    path("<int:wedding_id>/guests/<int:guest_id>/rsvp-link/", guest_rsvp_link, name="guest-rsvp-link"),
     path("<int:wedding_id>/guests/<int:guest_id>/", GuestDetail.as_view(), name="guest-detail"),
     path(
         "<int:wedding_id>/invitations/",

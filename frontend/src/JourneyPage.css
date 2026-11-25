@@ -1,0 +1,51 @@
+.journey-page, .journey-dashboard { min-inline-size: 0; display: grid; gap: var(--space-3); }
+.journey-dashboard { margin-block-start: clamp(16px, 2vw, 24px); }
+.journey-page :is(h1,h2,h3,p), .journey-dashboard h3 { margin: 0; }
+.journey-intro, .journey-dashboard-card {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .8fr); gap: clamp(12px, 3vw, 32px);
+    padding: clamp(14px, 2.5vw, 32px); background: #f7fafc;
+}
+.journey-intro h1 { font-size: clamp(2rem, 4vw, 3.2rem); }
+.journey-intro > div, .journey-dashboard-card > div { display: grid; align-content: start; gap: 8px; }
+.journey-dashboard-card p { margin: 0; }
+.journey-progress { display: grid; gap: 6px; color: #2d4c65; }
+.journey-progress > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
+.journey-progress strong { font: 600 clamp(1.35rem, 3vw, 2.1rem)/1.1 var(--font-heading); }
+.journey-progress progress { inline-size: 100%; block-size: 9px; accent-color: #557b95; }
+.journey-next { margin: 0; padding-inline-start: 1.4rem; line-height: 1.7; }
+.journey-stages, .journey-tasks { list-style: none; margin: 0; padding: 0; }
+.journey-stages { position: relative; display: grid; gap: 12px; }
+.journey-stages::before { content: ""; position: absolute; inset-block: 20px; inset-inline-start: 16px; border-inline-start: 1px solid #bbcedc; }
+.journey-stages > li { position: relative; display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: start; gap: clamp(6px, 1.6vw, 16px); }
+.journey-stage-number {
+    display: grid; place-items: center; border-radius: 50%; inline-size: 34px; block-size: 34px;
+    margin-block-start: 12px; background: #e8f0f5; border: 1px solid #bbcedc; color: #31536e; font-weight: 700;
+}
+.journey-stage { padding: 0; min-inline-size: 0; }
+.journey-stage summary {
+    cursor: pointer; padding: 12px clamp(10px, 2vw, 22px); min-block-size: 56px;
+    font: 600 clamp(1.05rem, 2vw, 1.45rem)/1.4 var(--font-heading); color: #2d4c65;
+}
+.journey-stage summary small { margin-inline-start: 8px; color: #516c80; font: 400 .82rem/1.4 var(--font-body); }
+.journey-stage summary:focus-visible { outline: 2px solid #597c98; outline-offset: 2px; border-radius: 8px; }
+.journey-stage-body { display: grid; gap: 12px; padding: 0 clamp(10px, 2vw, 22px) 14px; }
+.journey-stage-body > button { justify-self: start; }
+.journey-task {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: center;
+    border-block-start: 1px solid #dce4ea; padding-block: 8px; overflow-wrap: anywhere;
+}
+.journey-task-copy { min-inline-size: 0; display: grid; gap: 4px; }
+.journey-task-copy label { display: flex; align-items: center; gap: 8px; min-block-size: 35px; }
+.journey-task-copy input { accent-color: #557b95; flex: 0 0 auto; }
+.journey-actions, .journey-task-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-inline-size: 0; }
+.journey-task-meta { color: #4c6376; font-size: .83rem; }
+.journey-task-meta > * { padding: 1px 6px; border-radius: 8px; background: #edf3f7; }
+.journey-task-form { display: grid; gap: 10px; padding: 12px; }
+.journey-fields {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+    gap: 8px; border: 0; margin: 0; padding: 0; min-inline-size: 0;
+}
+.journey-fields .ui-input, .journey-fields label { min-inline-size: 0; inline-size: 100%; }
+@container (max-width: 680px) {
+    .journey-intro, .journey-dashboard-card, .journey-task { grid-template-columns: minmax(0, 1fr); }
+}

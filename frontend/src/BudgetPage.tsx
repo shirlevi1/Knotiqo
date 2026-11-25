@@ -52,7 +52,7 @@ function CategoryForm({ category, busy, onCancel, onSubmit }: {
     </form>;
 }
 
-export default function BudgetPage({ weddingId, newExpense, expenseId }: { weddingId: number; newExpense?: boolean; expenseId?: number }) {
+export default function BudgetPage({ weddingId, newExpense, expenseId, showPayments }: { weddingId: number; newExpense?: boolean; expenseId?: number; showPayments?: boolean }) {
     const [budget, setBudget] = useState<Budget | null>(null);
     const [total, setTotal] = useState("");
     const [editing, setEditing] = useState<number | "new" | null>(null);
@@ -175,7 +175,7 @@ export default function BudgetPage({ weddingId, newExpense, expenseId }: { weddi
                 </div>)}</dl>
             </section>
             <BudgetCommitments key={weddingId} weddingId={weddingId} categories={budget.categories}
-                newExpense={newExpense} expenseId={expenseId} />
+                newExpense={newExpense} expenseId={expenseId} showPayments={showPayments} />
             <VenueBudgetSimulation weddingId={weddingId} attendees={budget.attendee_summary.attendees} />
         </>}
         <BudgetAssistant weddingId={weddingId} initiallyOpen />

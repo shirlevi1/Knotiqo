@@ -1,8 +1,14 @@
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import CreateWedding from "./CreateWedding";
 import BudgetPage from "./BudgetPage";
 import VendorsPage from "./VendorsPage";
+import PlanningTools from "./PlanningTools";
+import { journeyApi, journeyError, type JourneySummary } from "./api/journey";
+import JourneyPage from "./JourneyPage";
+import JourneyDashboard from "./JourneyDashboard";
+import MeetingsPage from "./MeetingsPage";
+import { DashboardMeetings } from "./MeetingSummaries";
 import WorkspaceSidebar from "./components/WorkspaceSidebar";
 import { ProfileSettings, SecuritySettings, WeddingSettings } from "./components/WorkspaceSettings";
 import WeddingCoverEditor from "./components/WeddingCoverEditor";
@@ -76,7 +82,8 @@ function WorkspaceHero({ wedding, onSaveCover }: {
     );
 }
 
-function WeddingHomepage({ wedding, onSaveCover }: {
+function WeddingHomepage({ wedding, onSaveCover, summary, summaryError }: {
+    summary?: JourneySummary; summaryError?: string;
     wedding: WeddingDetails; onSaveCover: (url: string | null) => void;
 }) {
     const hasNames = wedding.creator_display_name.trim() || wedding.partner_display_name.trim();
@@ -88,7 +95,7 @@ function WeddingHomepage({ wedding, onSaveCover }: {
             <section id="workspace-planning" className="workspace-planning" aria-labelledby="workspace-planning-title">
                 <header className="workspace-section-heading">
                     <h2 id="workspace-planning-title">מסלול התכנון שלכם</h2>
-                    <a className="workspace-inline-link" href="#workspace-settings">פרטי החתונה והזוג <span aria-hidden="true">↓</span></a>
+                    <a className="workspace-inline-link" href={`#/weddings/${wedding.id}/tools`}>כל הכלים <span aria-hidden="true">←</span></a>
                 </header>
                 <ul className="workspace-tools">
                     <li>
@@ -99,28 +106,32 @@ function WeddingHomepage({ wedding, onSaveCover }: {
                     </li>
                     <li>
                         <AtelierIllustration kind="comparison" />
-                        <h3>השוואת אולמות</h3>
-                        <p>השוו עלויות לפי מספר האורחים וההצעות ששמרתם.</p>
-                        <a className="workspace-tool-link" href={`${base}/compare`}>השוואת הצעות <span aria-hidden="true">←</span></a>
+                        <h3>{summary?.features?.vendors?.visible ? "ספקים והוצאות" : "השוואת אולמות"}</h3>
+                        <p>{summary?.features?.vendors?.visible ? "רכזו את הספקים, הצעות המחיר וההתחייבויות."
+                            : "השוו עלויות לפי מספר האורחים וההצעות ששמרתם."}</p>
+                        <a className="workspace-tool-link" href={summary?.features?.vendors?.visible ? `#/weddings/${wedding.id}/vendors` : `${base}/compare`}>
+                            {summary?.features?.vendors?.visible ? "ניהול ספקים" : "השוואת הצעות"} <span aria-hidden="true">←</span></a>
                     </li>
                     <li>
                         <AtelierIllustration kind="budget" />
                         <h3>עוזר התקציב</h3>
-                        <p>בדקו את העלויות וקבלו המלצה מעוזר התקציב החכם.</p>
+                        <p>{summary?.features?.payments?.visible ? "נהלו תקציב, מקדמות ולוח תשלומים." : "בדקו את העלויות וקבלו המלצה מעוזר התקציב החכם."}</p>
                         <a className="workspace-tool-link" href={`#/weddings/${wedding.id}/budget`}>
                             ניהול התקציב <span aria-hidden="true">←</span>
                         </a>
                     </li>
                     <li>
                         <AtelierIllustration kind="guests" />
-                        <h3>רשימת המוזמנים</h3>
-                        <p>נהלו מוזמנים ומשפחות, עקבו אחר הכמויות וייבאו רשימות מ-Excel.</p>
-                        <a className="workspace-tool-link" href={`#/weddings/${wedding.id}/guests`}>
-                            ניהול מוזמנים <span aria-hidden="true">←</span>
+                        <h3>{summary?.features?.rsvp?.visible ? "אישורי הגעה" : "רשימת המוזמנים"}</h3>
+                        <p>{summary?.features?.rsvp?.visible ? "עקבו אחר תשובות המוזמנים ונהלו קישורי אישור." : "נהלו מוזמנים ומשפחות, עקבו אחר הכמויות וייבאו רשימות מ-Excel."}</p>
+                        <a className="workspace-tool-link" href={`#/weddings/${wedding.id}/guests${summary?.features?.rsvp?.visible ? "/rsvp" : ""}`}>
+                            {summary?.features?.rsvp?.visible ? "מעבר לאישורי הגעה" : "ניהול מוזמנים"} <span aria-hidden="true">←</span>
                         </a>
                     </li>
                 </ul>
             </section>
+            <JourneyDashboard key={`journey-summary-${wedding.id}`} weddingId={wedding.id} data={summary} error={summaryError} />
+            <DashboardMeetings key={`meeting-summary-${wedding.id}`} weddingId={wedding.id} />
             <section id="workspace-settings" className="workspace-settings" aria-labelledby="workspace-settings-title">
                 <header className="workspace-section-heading">
                     <h2 id="workspace-settings-title">פרטי החתונה והזוג</h2>
@@ -152,7 +163,7 @@ function WeddingHomepage({ wedding, onSaveCover }: {
     );
 }
 
-const weddingRoute = /^#\/weddings\/(\d+)\/(venues(?:\/compare)?|guests|vendors|settings|budget(?:\/(new-expense|expenses\/\d+))?)$/;
+const weddingRoute = /^#\/weddings\/(\d+)\/(venues(?:\/compare|\/\d+)?|guests(?:\/rsvp)?|vendors|journey|tools|settings|meetings(?:\/new(?:\/(?:venue|vendor)\/\d+)?|\/edit\/\d+)?|budget(?:\/(new-expense|payments|expenses\/\d+))?)$/;
 
 export default function WeddingWorkspace({ preferredWeddingId }: { preferredWeddingId?: number }) {
     const [state, setState] = useState<State>({ status: "loading" });
@@ -215,6 +226,29 @@ export default function WeddingWorkspace({ preferredWeddingId }: { preferredWedd
     const workspaceRoute = weddingRoute.exec(hash);
     const routeWedding = workspaceRoute ? weddings.find(({ id }) => id === Number(workspaceRoute[1])) : undefined;
 
+    const planningWeddingId = (workspaceRoute ? routeWedding : activeWedding)?.id;
+    const [planning, setPlanning] = useState<{ id: number; data?: JourneySummary; error?: string }>();
+    const planningRequest = useRef<AbortController | null>(null);
+    const currentPlanning = planning?.id === planningWeddingId ? planning : undefined;
+
+    useEffect(() => {
+        if (!planningWeddingId) return;
+        const controller = new AbortController();
+        planningRequest.current = controller;
+        void journeyApi(planningWeddingId).summary(controller.signal).then((data) => {
+            if (!controller.signal.aborted) setPlanning({ id: planningWeddingId, data });
+        }).catch((error) => {
+            if (!controller.signal.aborted) setPlanning((current) =>
+                current?.id === planningWeddingId && current.data ? current : { id: planningWeddingId, error: journeyError(error) });
+        });
+        return () => controller.abort();
+    }, [planningWeddingId, hash, attempt]);
+
+    function updatePlanning(id: number, data: JourneySummary) {
+        planningRequest.current?.abort();
+        setPlanning({ id, data });
+    }
+
     function applyDetails(weddingId: number, updates: Partial<Pick<WeddingDetails, keyof CoupleNames | "wedding_date" | "cover_image_url">>) {
         setState((current) => current.status === "ready" ? {
             ...current,
@@ -225,7 +259,7 @@ export default function WeddingWorkspace({ preferredWeddingId }: { preferredWedd
 
     function selectWedding(id: number) {
         setSelection({ id, preferred: preferredWeddingId });
-        if (workspaceRoute) window.location.hash = `#/weddings/${id}/${workspaceRoute[3] ? "budget" : workspaceRoute[2]}`;
+        if (workspaceRoute) window.location.assign(`#/weddings/${id}/${workspaceRoute[2].startsWith("meetings") ? "meetings" : /^venues\/\d+$/.test(workspaceRoute[2]) ? "venues" : workspaceRoute[3] && workspaceRoute[3] !== "payments" ? "budget" : workspaceRoute[2]}`);
     }
 
     function renderPage() {
@@ -237,21 +271,31 @@ export default function WeddingWorkspace({ preferredWeddingId }: { preferredWedd
                 <p className="ui-error" role="alert">החתונה אינה זמינה לחשבון הזה.</p>
                 <a className="ui-button ui-button--secondary" href="#workspace">חזרה למרחב החתונה</a>
             </div>;
+            if (workspaceRoute[2].startsWith("meetings")) {
+                return <MeetingsPage key={hash} weddingId={routeWedding.id} route={workspaceRoute[2]} />;
+            }
             switch (workspaceRoute[3] ? "budget" : workspaceRoute[2]) {
+                case "journey":
+                    return <JourneyPage key={routeWedding.id} weddingId={routeWedding.id}
+                        onChange={(data) => updatePlanning(routeWedding.id, data)} />;
+                case "tools":
+                    return <PlanningTools key={routeWedding.id} weddingId={routeWedding.id} features={currentPlanning?.data?.features}
+                        onChange={(data) => updatePlanning(routeWedding.id, data)} />;
                 case "settings":
                     return <WeddingSettings key={routeWedding.id} wedding={routeWedding}
                         onSaveNames={(names) => applyDetails(routeWedding.id, names)}
                         onSaveDate={(date) => applyDetails(routeWedding.id, { wedding_date: date })} />;
                 case "budget":
                     return <BudgetPage key={hash} weddingId={routeWedding.id}
-                        newExpense={workspaceRoute[3] === "new-expense"}
+                        newExpense={workspaceRoute[3] === "new-expense"} showPayments={workspaceRoute[3] === "payments"}
                         expenseId={workspaceRoute[3]?.startsWith("expenses/") ? Number(workspaceRoute[3].slice(9)) : undefined} />;
                 case "vendors":
                     return <VendorsPage key={routeWedding.id} weddingId={routeWedding.id} />;
                 case "guests":
-                    return <GuestsPage key={routeWedding.id} weddingId={routeWedding.id} weddingName={routeWedding.name} />;
+                case "guests/rsvp":
+                    return <GuestsPage key={hash} rsvpFocus={workspaceRoute[2] === "guests/rsvp"} weddingId={routeWedding.id} weddingName={routeWedding.name} />;
                 default:
-                    return <VenuesPage key={hash} weddingId={routeWedding.id} weddingName={routeWedding.name}
+                    return <VenuesPage initialVenueId={Number(/^venues\/(\d+)$/.exec(workspaceRoute[2])?.[1]) || undefined} key={hash} weddingId={routeWedding.id} weddingName={routeWedding.name}
                         initialComparison={workspaceRoute[2] === "venues/compare"} />;
             }
         }
@@ -287,12 +331,12 @@ export default function WeddingWorkspace({ preferredWeddingId }: { preferredWedd
             }} />;
         }
 
-        return <WeddingHomepage wedding={activeWedding}
+        return <WeddingHomepage wedding={activeWedding} summary={currentPlanning?.data} summaryError={currentPlanning?.error}
             onSaveCover={(url) => applyDetails(activeWedding.id, { cover_image_url: url })} />;
     }
 
     return <div className="workspace-shell" dir="rtl">
-        <WorkspaceSidebar hash={hash} weddings={weddings} weddingId={(routeWedding ?? activeWedding)?.id}
+        <WorkspaceSidebar features={currentPlanning?.data?.features} hash={hash} weddings={weddings} weddingId={(routeWedding ?? activeWedding)?.id}
             onSelect={selectWedding} />
         <div className="workspace-content">{renderPage()}</div>
     </div>;

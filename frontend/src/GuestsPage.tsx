@@ -1,3 +1,4 @@
+import GuestRSVPShare from "./components/GuestRSVPShare";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
     ageFields, archives, categories, guestError, guestFields, guestsApi, GuestApiError, sides,
@@ -146,13 +147,14 @@ function GuestForm({ guest, onSave, onClose, busy }: {
     </form>;
 }
 
-export default function GuestsPage(props: { weddingId: number; weddingName: string }) {
+export default function GuestsPage(props: { weddingId: number; weddingName: string; rsvpFocus?: boolean }) {
     return <WeddingGuests key={props.weddingId} {...props} />;
 }
 
-function WeddingGuests({ weddingId, weddingName }: { weddingId: number; weddingName: string }) {
+function WeddingGuests({ weddingId, weddingName, rsvpFocus }: { weddingId: number; weddingName: string; rsvpFocus?: boolean }) {
     const [filters, setFilters] = useState(initialFilters);
     const [data, setData] = useState<GuestList>();
+    const [sharingGuest, setSharingGuest] = useState<Guest>();
     const [editor, setEditor] = useState<Guest | "new">();
     const [importing, setImporting] = useState(false);
     const [revision, setRevision] = useState(0);
@@ -217,12 +219,13 @@ function WeddingGuests({ weddingId, weddingName }: { weddingId: number; weddingN
             <p className="eyebrow"><bdi>{weddingName}</bdi></p>
             <h1 id="guests-title">רשימת המוזמנים שלנו</h1>
         </header>
+        {rsvpFocus && <p className="guest-panel ui-panel">לאישורי הגעה וקישורים אישיים, בחרו ״אישור הגעה ושיתוף״ ליד רשומת המוזמן.</p>}
         {importing ? <GuestImportWizard weddingId={weddingId} onClose={() => setImporting(false)}
             onImported={() => refresh(true)} /> : <>
             <div className="guest-toolbar">
                 <button className="ui-button" type="button" disabled={busy} onClick={() => setEditor("new")}>הוספת מוזמן</button>
                 <button className="ui-button ui-button--secondary" type="button" disabled={busy} onClick={() => {
-                    setEditor(undefined); setImporting(true);
+                    setSharingGuest(undefined); setEditor(undefined); setImporting(true);
                 }}>ייבוא רשימה</button>
                 <button className="ui-button ui-button--text" type="button" disabled={busy}
                     onClick={() => void run((signal) => api.download("template", "active", signal), () => {})}>הורדת תבנית Excel</button>
@@ -231,6 +234,8 @@ function WeddingGuests({ weddingId, weddingName }: { weddingId: number; weddingN
             </div>
             {actionError && <p role="alert" className="ui-error">{actionError}</p>}
             {status && <p role="status" className="ui-status">{status}</p>}
+            {sharingGuest && <GuestRSVPShare key={sharingGuest.id} weddingId={weddingId} guest={sharingGuest}
+                close={() => setSharingGuest(undefined)} />}
             {editor && <GuestForm key={editor === "new" ? "new" : editor.id} guest={editor === "new" ? undefined : editor}
                 busy={busy} onClose={() => setEditor(undefined)} onSave={(values) => run(
                     (signal) => api.save(values, signal, editor === "new" ? undefined : editor.id), () => {
@@ -290,9 +295,12 @@ function WeddingGuests({ weddingId, weddingName }: { weddingId: number; weddingN
                             </td>
                             <td role="cell" data-label="משפחה"><bdi>{guest.family_group || "—"}</bdi></td>
                             <td role="cell" data-label="פעולות"><div className="guest-toolbar">
-                                <button type="button" className="ui-button ui-button--text" disabled={busy} onClick={() => setEditor(guest)}>עריכה</button>
+                                <button type="button" className="ui-button ui-button--text" disabled={busy} onClick={() => { setSharingGuest(undefined); setEditor(guest); }}>עריכה</button>
+                                {!guest.is_archived && <button type="button" className="ui-button ui-button--text" disabled={busy}
+                                    onClick={() => { setEditor(undefined); setSharingGuest(guest); }}>אישור הגעה ושיתוף</button>}
                                 <button type="button" className="ui-button ui-button--text" disabled={busy}
                                     onClick={() => void run((signal) => api.archive(guest.id, !guest.is_archived, signal), () => {
+                                        setSharingGuest(undefined);
                                         setEditor(undefined);
                                         setStatus(guest.is_archived ? "המוזמן שוחזר." : "המוזמן הועבר לארכיון.");
                                         if (data.results.length === 1 && filters.page > 1 && filters.archive !== "all") {
